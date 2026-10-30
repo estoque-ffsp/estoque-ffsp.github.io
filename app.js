@@ -240,10 +240,10 @@ function textoLista(tipo) {
   const pos = S.leitura?.posicao ? S.leitura.posicao.slice(0, 16) : (S.leitura ? dt(S.leitura.lido_em) : "");
   if (tipo === "rup") {
     const l = rupturas();
-    return `*Produtos Genom em falta na F&F*${pos ? ` (posição ${pos})` : ""}\n\n${l.map((p) => `• ${p.nome}`).join("\n")}\n\nAssim que voltarem ao estoque, eu aviso!`;
+    return `*Produtos Genom em falta na F&F*${pos ? ` (posição ${pos})` : ""}\n\n${l.map((p) => `• ${p.nome}\n   EAN ${p.ean}`).join("\n")}`;
   }
   const l = baixos();
-  return `*Produtos Genom com estoque baixo na F&F*${pos ? ` (posição ${pos})` : ""}\n\n${l.map((p) => `• ${p.nome} — ${p.estoque} un.`).join("\n")}\n\nSe precisar, garanta o seu pedido antes que acabe.`;
+  return `*Produtos Genom com estoque baixo na F&F*${pos ? ` (posição ${pos})` : ""}\n\n${l.map((p) => `• ${p.nome} — ${p.estoque} un.\n   EAN ${p.ean}`).join("\n")}`;
 }
 async function copiarLista(tipo) {
   const txt = textoLista(tipo);
