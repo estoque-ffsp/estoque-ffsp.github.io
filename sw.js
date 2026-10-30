@@ -1,5 +1,5 @@
 // Service worker: notificações com o app fechado + funcionamento básico offline
-const CACHE = "ruptura-v1";
+const CACHE = "estoque-v2";
 const ARQUIVOS = ["./", "./index.html", "./app.js", "./styles.css", "./config.js", "./manifest.json", "./icon-192.png"];
 
 self.addEventListener("install", (e) => {
@@ -19,8 +19,8 @@ self.addEventListener("fetch", (e) => {
 });
 self.addEventListener("push", (e) => {
   let d = {};
-  try { d = e.data ? e.data.json() : {}; } catch { d = { titulo: "Ruptura F&F", corpo: e.data ? e.data.text() : "" }; }
-  e.waitUntil(self.registration.showNotification(d.titulo || "Ruptura F&F", {
+  try { d = e.data ? e.data.json() : {}; } catch { d = { titulo: "Estoque FFSP", corpo: e.data ? e.data.text() : "" }; }
+  e.waitUntil(self.registration.showNotification(d.titulo || "Estoque FFSP", {
     body: d.corpo || "", icon: "icon-192.png", badge: "icon-192.png", tag: d.tag || undefined, renotify: !!d.tag, data: { url: "./" },
   }));
 });

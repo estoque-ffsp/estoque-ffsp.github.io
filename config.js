@@ -1,4 +1,4 @@
-// Configuração do app Ruptura F&F (valores públicos — podem ficar no GitHub)
+// Configuração do app Estoque FFSP (valores públicos — podem ficar no GitHub)
 export const CONFIG = {
   SUPABASE_URL: "https://hrqsohrhebynjsnmxjkb.supabase.co",
   SUPABASE_KEY: "sb_publishable_e5wV4RzjmKp5la1xrc5dYw_RaEAKIG4",

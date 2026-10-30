@@ -1,4 +1,4 @@
-# Ruptura F&F
+# Estoque FFSP
 
 App da equipe Genom: estoque da F&F – Taboão da Serra (rupturas e reposições), pré-pedidos de cada representante e geração da planilha de importação do Sales Farma (aba `Dados_pedidos`).
 

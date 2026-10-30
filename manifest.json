@@ -1,6 +1,6 @@
 {
-  "name": "Ruptura F&F",
-  "short_name": "Ruptura F&F",
+  "name": "Estoque FFSP",
+  "short_name": "Estoque FFSP",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

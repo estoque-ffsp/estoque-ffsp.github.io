@@ -35,7 +35,7 @@ const S = { sb: null, user: null, rep: null, produtos: [], pm: {}, leitura: null
 function telaLogin(msg) {
   $("#app").innerHTML = `
   <form class="login card" id="fLogin" novalidate>
-    <div><h1>Ruptura F&amp;F</h1><p>Estoque da F&amp;F Taboão e seus pré-pedidos.</p></div>
+    <div><h1>Estoque FFSP</h1><p>Estoque da F&amp;F Taboão e seus pré-pedidos.</p></div>
     <label>Setor <input id="lSetor" inputmode="numeric" autocomplete="username" placeholder="Ex.: 612010" required></label>
     <label>Senha <input id="lSenha" type="password" autocomplete="current-password" required></label>
     <div class="notice bad" id="lErr" ${msg ? "" : "hidden"}>${esc(msg || "")}</div>
@@ -91,7 +91,7 @@ function telaSenha() {
 function telaPrincipal() {
   $("#app").innerHTML = `
   <header>
-    <div><h1>Ruptura F&amp;F</h1><p>F&amp;F – Taboão da Serra · setor <span class="mono">${esc(S.rep.setor)}</span></p></div>
+    <div><h1>Estoque FFSP</h1><p>F&amp;F – Taboão da Serra · setor <span class="mono">${esc(S.rep.setor)}</span></p></div>
     <button class="btn link" id="btnSair" type="button">Sair</button>
   </header>
   <div class="strip">
@@ -219,7 +219,7 @@ function renderPush() {
     el.innerHTML = ios && !standalone ? `<div class="alert info"><div><strong>Instale o app para receber avisos</strong><p>No Safari, toque em Compartilhar e depois em <b>Adicionar à Tela de Início</b>. Abra pelo ícone novo.</p></div></div>` : "";
     return;
   }
-  if (Notification.permission === "denied") { el.innerHTML = `<div class="alert info"><div><strong>Avisos bloqueados</strong><p>Libere as notificações do Ruptura F&amp;F nos Ajustes do celular.</p></div></div>`; return; }
+  if (Notification.permission === "denied") { el.innerHTML = `<div class="alert info"><div><strong>Avisos bloqueados</strong><p>Libere as notificações do Estoque FFSP nos Ajustes do celular.</p></div></div>`; return; }
   if (Notification.permission === "granted" && ler("push_ok", false)) { el.innerHTML = ""; return; }
   el.innerHTML = `<div class="alert info"><div><strong>Ative os avisos</strong><p>O celular avisa quando um produto entrar ou zerar na F&amp;F, mesmo bloqueado.</p></div><button class="btn primary small" id="btnPush" type="button">Ativar</button></div>`;
   $("#btnPush").onclick = ativarPush;
