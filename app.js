@@ -36,7 +36,7 @@ function telaLogin(msg) {
   $("#app").innerHTML = `
   <form class="login card" id="fLogin" novalidate>
     <div><h1>Estoque FFSP</h1><p>Estoque da F&amp;F Taboão e seus pré-pedidos.</p></div>
-    <label>Setor <input id="lSetor" inputmode="numeric" autocomplete="username" placeholder="Ex.: 612010" required></label>
+    <label>Setor <input id="lSetor" inputmode="numeric" autocomplete="username" placeholder="Número do seu setor" required></label>
     <label>Senha <input id="lSenha" type="password" autocomplete="current-password" required></label>
     <div class="notice bad" id="lErr" ${msg ? "" : "hidden"}>${esc(msg || "")}</div>
     <button class="btn primary" type="submit" id="lBtn">Entrar</button>
@@ -111,7 +111,7 @@ function telaPrincipal() {
 
   <section id="view-estoque">
     <h2>Estoque geral <small>todos os produtos da F&amp;F</small></h2>
-    <input id="busca" type="search" placeholder="Digite o nome ou o EAN, ex.: Zolpaz" autocomplete="off">
+    <input id="busca" type="search" placeholder="Digite o nome ou o EAN do produto" autocomplete="off">
     <div class="list" id="listGeral"></div>
     <div id="boxVolta" hidden>
       <h2>Voltaram ao estoque <small id="voltaQuando"></small></h2>
@@ -143,14 +143,14 @@ function telaPrincipal() {
     <h2 id="formTitle">Novo pré-pedido</h2>
     <form class="card" id="form" novalidate>
       <div class="grid2">
-        <label>CNPJ do cliente <input id="fCnpj" inputmode="numeric" placeholder="00.000.000/0000-00"></label>
-        <label>Nome do cliente <span class="hint">(opcional)</span><input id="fNome" placeholder="Ex.: Farmavip Princesa"></label>
+        <label>CNPJ do cliente <input id="fCnpj" inputmode="numeric" placeholder="CNPJ com 14 dígitos"></label>
+        <label>Nome do cliente <span class="hint">(opcional)</span><input id="fNome" placeholder="Nome do cliente"></label>
         <label>ID da condição <input id="fCond" class="mono" inputmode="numeric"></label>
         <label>Prazo <select id="fPrazo">${PRAZOS.map((p) => `<option>${esc(p)}</option>`).join("")}</select></label>
         <label>Nº OS <span class="hint">(opcional)</span><input id="fOs" class="mono" inputmode="numeric"></label>
       </div>
       <div class="items" id="fItens"></div>
-      <label>Adicionar produto <input id="fBusca" type="search" placeholder="Busque pelo nome ou EAN" autocomplete="off"></label>
+      <label>Adicionar produto <input id="fBusca" type="search" placeholder="Digite o nome ou o EAN do produto" autocomplete="off"></label>
       <div class="results" id="fResults" hidden></div>
       <div class="total"><span>Total líquido estimado <span style="font-size:12px;color:var(--muted)">(preço fábrica − desconto, sem impostos)</span></span><b id="fTotal">R$ 0,00</b></div>
       <div class="notice warn" id="minWarn" hidden></div>
