@@ -122,6 +122,7 @@ function telaPrincipal() {
   <section id="view-ruptura" hidden>
     <div class="actions" style="justify-content:space-between"><h2>Em ruptura <small>sem estoque na F&amp;F</small></h2>
       <span class="actions"><button class="btn primary" id="btnCopiarRup" type="button">Copiar para WhatsApp</button><button class="btn" id="btnShareRup" type="button" hidden>Enviar</button></span></div>
+    <div class="selbar"><span id="rupSelInfo"></span><span class="actions"><button class="btn small" type="button" id="rupTodos">Marcar todos</button><button class="btn small" type="button" id="rupNenhum">Desmarcar todos</button></span></div>
     <div class="list" id="listRup"></div>
   </section>
 
@@ -166,7 +167,10 @@ function telaPrincipal() {
   $("#alfabeto").addEventListener("click", (e) => { const b = e.target.closest("[data-letra]"); if (!b) return; S.letra = S.letra === b.dataset.letra ? null : b.dataset.letra; renderBusca(); });
   $("#btnExport").onclick = exportar;
   $("#btnNovo").onclick = () => { limparForm(); mostrar("novo"); };
-  $("#btnCopiarRup").onclick = () => copiarLista("rup");
+  $("#btnCopiarRup").onclick = () => { if (!rupturas().some((p) => !fora().has(p.ean))) { toast("Marque pelo menos um produto para a mensagem."); return; } copiarLista("rup"); };
+  $("#listRup").addEventListener("change", (e) => { const c = e.target.closest("[data-rup]"); if (c) marcarRup([c.dataset.rup], c.checked); });
+  $("#rupTodos").onclick = () => marcarRup(rupturas().map((p) => p.ean), true);
+  $("#rupNenhum").onclick = () => marcarRup(rupturas().map((p) => p.ean), false);
   $("#btnCopiarBaixo").onclick = () => copiarLista("baixo");
   if (navigator.share && /iphone|ipad|android/i.test(navigator.userAgent)) { $("#btnShareRup").hidden = false; $("#btnShareRup").onclick = () => compartilhar(textoLista("rup")); }
   $("#listPed").addEventListener("click", cliquePedido);
@@ -207,6 +211,16 @@ async function carregar() {
 const pillEst = (p) => !p ? `<span class="pill muted">fora do portfólio</span>` : p.estoque ? `<span class="pill ok">${p.estoque.toLocaleString("pt-BR")} un.</span>` : `<span class="pill bad">sem estoque</span>`;
 const dt = (iso, o = { dateStyle: "short", timeStyle: "short" }) => new Date(iso).toLocaleString("pt-BR", o);
 const rupturas = () => S.produtos.filter((p) => !p.estoque);
+// Produtos de ruptura que o representante tirou da mensagem (ex.: lançamentos). Fica salvo no aparelho.
+const fora = () => new Set(ler("rup_fora", []));
+function renderRup() {
+  const rup = rupturas(), f = fora(), box = $("#listRup"); if (!box) return;
+  box.innerHTML = rup.length ? rup.map((p) => `<label class="row sel"><input type="checkbox" data-rup="${esc(p.ean)}" ${f.has(p.ean) ? "" : "checked"}><span class="name">${esc(p.nome)}<span class="sub mono" style="display:block">${esc(p.ean)}</span></span><span class="pill bad">sem estoque</span></label>`).join("")
+    : `<div class="empty">${S.produtos.length ? "Nenhum produto em ruptura." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
+  const n = rup.filter((p) => !f.has(p.ean)).length;
+  $("#rupSelInfo").textContent = rup.length ? `${n} de ${rup.length} vão na mensagem` : "";
+}
+function marcarRup(eans, incluir) { const f = fora(); eans.forEach((e) => (incluir ? f.delete(e) : f.add(e))); gravar("rup_fora", [...f]); renderRup(); }
 const baixos = () => S.produtos.filter((p) => p.estoque > 0 && p.estoque < 100).sort((a, b) => a.estoque - b.estoque);
 const linhaProd = (p) => `<div class="row"><span class="name">${esc(p.nome)}</span>${pillEst(p)}<span class="sub"><span class="mono">${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>máx. Geral ${p.desc_max}%</span>` : ""}</span></div>`;
 function renderEstoque() {
@@ -222,7 +236,7 @@ function renderEstoque() {
     $("#voltaQuando").textContent = "na varredura de " + dt(S.leitura.lido_em);
   } else $("#scan").innerHTML = `<span class="dot old"></span><span>Nenhuma varredura de estoque publicada ainda.</span>`;
   $("#listVolta").innerHTML = S.voltaram.length ? S.voltaram.map((e) => `<div class="row"><span class="name">${esc(e.nome)}</span><span class="pill ok">${(e.qtd || 0).toLocaleString("pt-BR")} un.</span><span class="sub mono">${esc(e.ean)}</span></div>`).join("") : `<div class="empty">Nenhum produto voltou na última varredura.</div>`;
-  $("#listRup").innerHTML = rup.length ? rup.map((p) => `<div class="row"><span class="name">${esc(p.nome)}</span><span class="pill bad">sem estoque</span><span class="sub mono">${esc(p.ean)}</span></div>`).join("") : `<div class="empty">${S.produtos.length ? "Nenhum produto em ruptura." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
+  renderRup();
   renderBusca();
   $("#events").innerHTML = S.eventos.length ? S.eventos.slice(0, 60).map((x) => `<div><time>${dt(x.criado_em, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</time><span class="pill ${x.tipo === "ENTROU" ? "ok" : "bad"}">${x.tipo === "ENTROU" ? "entrou" : "zerou"}</span><span>${esc(x.nome)}${x.tipo === "ENTROU" && x.qtd ? ` · <span class="qty">${x.qtd.toLocaleString("pt-BR")} un.</span>` : ""}</span></div>`).join("") : `<span class="empty">Sem registros ainda.</span>`;
 }
@@ -251,7 +265,7 @@ function renderBusca() {
 function textoLista(tipo) {
   const pos = S.leitura?.posicao ? S.leitura.posicao.slice(0, 16) : (S.leitura ? dt(S.leitura.lido_em) : "");
   if (tipo === "rup") {
-    const l = rupturas();
+    const f = fora(); const l = rupturas().filter((p) => !f.has(p.ean));
     return `*Produtos Genom em falta na F&F*${pos ? ` (posição ${pos})` : ""}\n\n${l.map((p) => `• ${p.nome}\n   EAN ${p.ean}`).join("\n")}`;
   }
   const l = baixos();

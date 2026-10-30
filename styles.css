@@ -102,3 +102,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
 .barra{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .barra .btn{padding:12px 10px}
 .barra .btn.ativo{border-color:var(--accent);color:var(--accent)}
+.selbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.row.sel{grid-template-columns:auto minmax(0,1fr) auto;cursor:pointer}
+.row.sel input{width:20px;height:20px;accent-color:var(--accent);margin:0}
+.row.sel .sub{font-size:12.5px;color:var(--muted);font-weight:400}
