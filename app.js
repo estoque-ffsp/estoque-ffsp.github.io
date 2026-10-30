@@ -112,7 +112,8 @@ function telaPrincipal() {
   <section id="view-estoque">
     <h2>Estoque geral <small>todos os produtos da F&amp;F</small></h2>
     <input id="busca" type="search" placeholder="Digite o nome ou o EAN do produto" autocomplete="off">
-    <div class="list" id="listGeral"></div>
+    <div class="alfabeto" id="alfabeto" role="group" aria-label="Produtos por letra"></div>
+    <div class="list" id="listGeral" hidden></div>
     <div id="boxVolta" hidden>
       <h2>Voltaram ao estoque <small id="voltaQuando"></small></h2>
       <div class="list" id="listVolta"></div>
@@ -163,6 +164,7 @@ function telaPrincipal() {
   $("#alertGo").onclick = () => mostrar("pedidos");
   $("#btnSair").onclick = async () => { await S.sb.auth.signOut(); location.reload(); };
   $("#busca").oninput = renderBusca;
+  $("#alfabeto").addEventListener("click", (e) => { const b = e.target.closest("[data-letra]"); if (!b) return; S.letra = S.letra === b.dataset.letra ? null : b.dataset.letra; renderBusca(); });
   $("#btnExport").onclick = exportar;
   $("#btnNovo").onclick = () => { limparForm(); mostrar("novo"); };
   $("#btnCopiarRup").onclick = () => copiarLista("rup");
@@ -229,10 +231,24 @@ function renderEstoque() {
   $("#events").innerHTML = S.eventos.length ? S.eventos.slice(0, 60).map((x) => `<div><time>${dt(x.criado_em, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</time><span class="pill ${x.tipo === "ENTROU" ? "ok" : "bad"}">${x.tipo === "ENTROU" ? "entrou" : "zerou"}</span><span>${esc(x.nome)}${x.tipo === "ENTROU" && x.qtd ? ` · <span class="qty">${x.qtd.toLocaleString("pt-BR")} un.</span>` : ""}</span></div>`).join("") : `<span class="empty">Sem registros ainda.</span>`;
 }
 function buscar(q, lim = 60) { q = norm(q).trim(); if (!q) return []; const ws = q.split(/\s+/); return S.produtos.filter((p) => { const h = norm(p.nome) + " " + p.ean; return ws.every((w) => h.includes(w)); }).slice(0, lim); }
+const letraDe = (n) => { const c = norm(n).trim()[0] || "#"; return /[A-Z]/.test(c) ? c : "#"; };
 function renderBusca() {
-  const q = $("#busca")?.value || "", box = $("#listGeral"); if (!box) return;
-  const r = q.trim() ? buscar(q, 500) : S.produtos;
-  box.innerHTML = r.length ? r.map(linhaProd).join("") : `<div class="empty">${S.produtos.length ? "Nenhum produto encontrado com esse nome ou EAN." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
+  const q = $("#busca")?.value || "", box = $("#listGeral"), alf = $("#alfabeto"); if (!box) return;
+  if (!S.produtos.length) { alf.innerHTML = ""; box.hidden = false; box.innerHTML = `<div class="empty">O estoque aparece aqui depois da primeira varredura.</div>`; return; }
+  if (q.trim()) {
+    alf.hidden = true; box.hidden = false;
+    const r = buscar(q, 500);
+    box.innerHTML = r.length ? r.map(linhaProd).join("") : `<div class="empty">Nenhum produto encontrado com esse nome ou EAN.</div>`;
+    return;
+  }
+  alf.hidden = false;
+  const tem = new Set(S.produtos.map((p) => letraDe(p.nome)));
+  const letras = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].filter((l) => tem.has(l)).concat(tem.has("#") ? ["#"] : []);
+  if (S.letra && !tem.has(S.letra)) S.letra = null;
+  alf.innerHTML = letras.map((l) => `<button type="button" data-letra="${l}" aria-pressed="${S.letra === l}">${l}</button>`).join("");
+  if (!S.letra) { box.hidden = false; box.innerHTML = `<div class="empty">Toque numa letra para ver os produtos, ou digite o nome ou o EAN acima.</div>`; return; }
+  const r = S.produtos.filter((p) => letraDe(p.nome) === S.letra);
+  box.hidden = false; box.innerHTML = r.map(linhaProd).join("");
 }
 
 /* ===================== copiar / enviar no WhatsApp ===================== */

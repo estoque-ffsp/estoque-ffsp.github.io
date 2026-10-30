@@ -94,3 +94,6 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
 .login{max-width:380px;margin:8vh auto 0;width:100%}
 .login h1{font-family:var(--f-display);font-stretch:80%;font-weight:800;font-size:34px;margin:0}
 .login p{color:var(--muted);margin:4px 0 0}
+.alfabeto{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px}
+.alfabeto button{border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px var(--f-display);padding:9px 0;border-radius:8px;cursor:pointer}
+.alfabeto button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
