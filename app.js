@@ -97,31 +97,44 @@ function telaPrincipal() {
   <div class="strip">
     <div><b id="nSku">—</b><span>SKUs</span></div>
     <div class="bad"><b id="nRup">—</b><span>Em ruptura</span></div>
-    <div class="ok"><b id="nVolta">—</b><span>Voltaram</span></div>
+    <div class="warnc"><b id="nBaixo">—</b><span>Abaixo de 100</span></div>
   </div>
   <div class="scan" id="scan"><span class="dot old"></span><span>Carregando o estoque…</span></div>
   <div id="faixaPush"></div>
   <div class="alert" id="alert" hidden><div><strong id="alertTitle"></strong><p id="alertText"></p></div><button class="btn primary small" id="alertGo" type="button">Ver pré-pedidos</button></div>
   <nav class="tabs" role="tablist">
     <button role="tab" data-view="estoque" aria-selected="true">Estoque</button>
-    <button role="tab" data-view="pedidos" aria-selected="false">Pré-pedidos<span class="count" id="cntPed"></span></button>
-    <button role="tab" data-view="novo" aria-selected="false">Novo</button>
+    <button role="tab" data-view="ruptura" aria-selected="false">Ruptura<span class="count" id="cntRup"></span></button>
+    <button role="tab" data-view="baixo" aria-selected="false">&lt; 100<span class="count" id="cntBaixo"></span></button>
+    <button role="tab" data-view="pedidos" aria-selected="false">Pedidos<span class="count" id="cntPed"></span></button>
   </nav>
 
   <section id="view-estoque">
-    <h2>Voltaram ao estoque <small id="voltaQuando"></small></h2>
-    <div class="list" id="listVolta"></div>
-    <h2>Em ruptura <small>sem estoque na F&amp;F</small></h2>
-    <div class="list" id="listRup"></div>
-    <h2>Consultar produto</h2>
-    <input id="busca" type="search" placeholder="Nome ou EAN, ex.: Zolpaz" autocomplete="off">
-    <div class="list" id="listBusca" hidden></div>
+    <h2>Estoque geral <small>todos os produtos da F&amp;F</small></h2>
+    <input id="busca" type="search" placeholder="Digite o nome ou o EAN, ex.: Zolpaz" autocomplete="off">
+    <div class="list" id="listGeral"></div>
+    <div id="boxVolta" hidden>
+      <h2>Voltaram ao estoque <small id="voltaQuando"></small></h2>
+      <div class="list" id="listVolta"></div>
+    </div>
     <details class="card"><summary>Histórico de entradas e rupturas</summary><div class="events" id="events"></div></details>
+  </section>
+
+  <section id="view-ruptura" hidden>
+    <div class="actions" style="justify-content:space-between"><h2>Em ruptura <small>sem estoque na F&amp;F</small></h2>
+      <span class="actions"><button class="btn primary" id="btnCopiarRup" type="button">Copiar para WhatsApp</button><button class="btn" id="btnShareRup" type="button" hidden>Enviar</button></span></div>
+    <div class="list" id="listRup"></div>
+  </section>
+
+  <section id="view-baixo" hidden>
+    <div class="actions" style="justify-content:space-between"><h2>Abaixo de 100 unidades <small>do menor para o maior</small></h2>
+      <span class="actions"><button class="btn" id="btnCopiarBaixo" type="button">Copiar para WhatsApp</button></span></div>
+    <div class="list" id="listBaixo"></div>
   </section>
 
   <section id="view-pedidos" hidden>
     <div class="actions" style="justify-content:space-between"><h2>Meus pré-pedidos <small>só você vê os seus</small></h2>
-      <button class="btn primary" id="btnExport" type="button" disabled>Gerar planilha</button></div>
+      <span class="actions"><button class="btn" id="btnNovo" type="button">+ Novo pré-pedido</button><button class="btn primary" id="btnExport" type="button" disabled>Gerar planilha</button></span></div>
     <div class="notice warn" id="exportHint" hidden></div>
     <div class="items" id="listPed"></div>
   </section>
@@ -151,6 +164,10 @@ function telaPrincipal() {
   $("#btnSair").onclick = async () => { await S.sb.auth.signOut(); location.reload(); };
   $("#busca").oninput = renderBusca;
   $("#btnExport").onclick = exportar;
+  $("#btnNovo").onclick = () => { limparForm(); mostrar("novo"); };
+  $("#btnCopiarRup").onclick = () => copiarLista("rup");
+  $("#btnCopiarBaixo").onclick = () => copiarLista("baixo");
+  if (navigator.share && /iphone|ipad|android/i.test(navigator.userAgent)) { $("#btnShareRup").hidden = false; $("#btnShareRup").onclick = () => compartilhar(textoLista("rup")); }
   $("#listPed").addEventListener("click", cliquePedido);
   ligarForm();
   limparForm();
@@ -161,7 +178,9 @@ function telaPrincipal() {
 function mostrar(v) {
   S.view = v;
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === v)));
-  ["estoque", "pedidos", "novo"].forEach((x) => ($("#view-" + x).hidden = x !== v));
+  const aba = v === "novo" ? "pedidos" : v;
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === aba)));
+  ["estoque", "ruptura", "baixo", "pedidos", "novo"].forEach((x) => ($("#view-" + x).hidden = x !== v));
   window.scrollTo({ top: 0 });
 }
 
@@ -187,11 +206,18 @@ async function carregar() {
 /* ===================== estoque ===================== */
 const pillEst = (p) => !p ? `<span class="pill muted">fora do portfólio</span>` : p.estoque ? `<span class="pill ok">${p.estoque.toLocaleString("pt-BR")} un.</span>` : `<span class="pill bad">sem estoque</span>`;
 const dt = (iso, o = { dateStyle: "short", timeStyle: "short" }) => new Date(iso).toLocaleString("pt-BR", o);
+const rupturas = () => S.produtos.filter((p) => !p.estoque);
+const baixos = () => S.produtos.filter((p) => p.estoque > 0 && p.estoque < 100).sort((a, b) => a.estoque - b.estoque);
+const linhaProd = (p) => `<div class="row"><span class="name">${esc(p.nome)}</span>${pillEst(p)}<span class="sub"><span class="mono">${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>máx. Geral ${p.desc_max}%</span>` : ""}</span></div>`;
 function renderEstoque() {
-  const rup = S.produtos.filter((p) => !p.estoque);
-  $("#nSku").textContent = S.produtos.length || "—";
-  $("#nRup").textContent = S.produtos.length ? rup.length : "—";
-  $("#nVolta").textContent = S.leitura ? S.voltaram.length : "—";
+  const rup = rupturas(), bx = baixos(), tem = S.produtos.length;
+  $("#nSku").textContent = tem || "—";
+  $("#nRup").textContent = tem ? rup.length : "—";
+  $("#nBaixo").textContent = tem ? bx.length : "—";
+  $("#cntRup").textContent = tem ? String(rup.length) : "";
+  $("#cntBaixo").textContent = tem ? String(bx.length) : "";
+  $("#boxVolta").hidden = !S.voltaram.length;
+  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><span class="name">${esc(p.nome)}</span><span class="pill warn">${p.estoque.toLocaleString("pt-BR")} un.</span><span class="sub mono">${esc(p.ean)}</span></div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   if (S.leitura) {
     const h = (Date.now() - new Date(S.leitura.lido_em)) / 36e5;
     $("#scan").innerHTML = `<span class="dot${h > 8 ? " old" : ""}"></span><span>Última varredura: <b>${dt(S.leitura.lido_em)}</b> · posição Sales Farma ${esc(S.leitura.posicao || "—")}</span>`;
@@ -202,13 +228,33 @@ function renderEstoque() {
   renderBusca();
   $("#events").innerHTML = S.eventos.length ? S.eventos.slice(0, 60).map((x) => `<div><time>${dt(x.criado_em, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</time><span class="pill ${x.tipo === "ENTROU" ? "ok" : "bad"}">${x.tipo === "ENTROU" ? "entrou" : "zerou"}</span><span>${esc(x.nome)}${x.tipo === "ENTROU" && x.qtd ? ` · <span class="qty">${x.qtd.toLocaleString("pt-BR")} un.</span>` : ""}</span></div>`).join("") : `<span class="empty">Sem registros ainda.</span>`;
 }
-function buscar(q) { q = norm(q).trim(); if (!q) return []; const ws = q.split(/\s+/); return S.produtos.filter((p) => { const h = norm(p.nome) + " " + p.ean; return ws.every((w) => h.includes(w)); }).slice(0, 60); }
+function buscar(q, lim = 60) { q = norm(q).trim(); if (!q) return []; const ws = q.split(/\s+/); return S.produtos.filter((p) => { const h = norm(p.nome) + " " + p.ean; return ws.every((w) => h.includes(w)); }).slice(0, lim); }
 function renderBusca() {
-  const q = $("#busca")?.value || "", box = $("#listBusca"); if (!box) return;
-  if (!q.trim()) { box.hidden = true; return; }
-  const r = buscar(q); box.hidden = false;
-  box.innerHTML = r.length ? r.map((p) => `<div class="row"><span class="name">${esc(p.nome)}</span>${pillEst(p)}<span class="sub"><span class="mono">${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>máx. Geral ${p.desc_max}%</span>` : ""}</span></div>`).join("") : `<div class="empty">Nenhum produto encontrado.</div>`;
+  const q = $("#busca")?.value || "", box = $("#listGeral"); if (!box) return;
+  const r = q.trim() ? buscar(q, 500) : S.produtos;
+  box.innerHTML = r.length ? r.map(linhaProd).join("") : `<div class="empty">${S.produtos.length ? "Nenhum produto encontrado com esse nome ou EAN." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
 }
+
+/* ===================== copiar / enviar no WhatsApp ===================== */
+function textoLista(tipo) {
+  const pos = S.leitura?.posicao ? S.leitura.posicao.slice(0, 16) : (S.leitura ? dt(S.leitura.lido_em) : "");
+  if (tipo === "rup") {
+    const l = rupturas();
+    return `*Produtos Genom em falta na F&F*${pos ? ` (posição ${pos})` : ""}\n\n${l.map((p) => `• ${p.nome}`).join("\n")}\n\nAssim que voltarem ao estoque, eu aviso!`;
+  }
+  const l = baixos();
+  return `*Produtos Genom com estoque baixo na F&F*${pos ? ` (posição ${pos})` : ""}\n\n${l.map((p) => `• ${p.nome} — ${p.estoque} un.`).join("\n")}\n\nSe precisar, garanta o seu pedido antes que acabe.`;
+}
+async function copiarLista(tipo) {
+  const txt = textoLista(tipo);
+  try { await navigator.clipboard.writeText(txt); toast("Lista copiada. É só colar na conversa do WhatsApp."); }
+  catch {
+    const ta = document.createElement("textarea"); ta.value = txt; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch {} ta.remove();
+    toast(ok ? "Lista copiada. É só colar na conversa do WhatsApp." : "Não foi possível copiar neste aparelho.");
+  }
+}
+async function compartilhar(txt) { try { await navigator.share({ text: txt }); } catch {} }
 
 /* ===================== notificações ===================== */
 const b64ToU8 = (b) => { const p = "=".repeat((4 - (b.length % 4)) % 4); const s = atob((b + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from([...s].map((c) => c.charCodeAt(0))); };
@@ -264,7 +310,7 @@ function renderPedidos() {
     $("#alertText").textContent = "Todos os itens têm estoque na F&F. Gere a planilha e importe no Sales Farma.";
   } else $("#alert").hidden = true;
   for (const id of [...S.sel]) if (!prontos.some((x) => x.po.id === id)) S.sel.delete(id);
-  if (!lista.length) { $("#listPed").innerHTML = `<div class="list"><div class="empty">Você ainda não tem pré-pedidos. Use a aba <b>Novo</b> para cadastrar o primeiro.</div></div>`; updExport(); return; }
+  if (!lista.length) { $("#listPed").innerHTML = `<div class="list"><div class="empty">Você ainda não tem pré-pedidos. Toque em <b>+ Novo pré-pedido</b> para cadastrar o primeiro.</div></div>`; updExport(); return; }
   $("#listPed").innerHTML = lista.map(({ po, st, tot }) => `
   <article class="po ${st.k === "ready" ? "ready" : ""}">
     <div class="po-head"><div class="who">${st.k === "ready" ? `<input type="checkbox" data-sel="${po.id}" ${S.sel.has(po.id) ? "checked" : ""} aria-label="Incluir na planilha">` : ""}
