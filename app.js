@@ -94,20 +94,18 @@ function telaPrincipal() {
     <div><h1>Estoque FFSP</h1><p>F&amp;F – Taboão da Serra · setor <span class="mono">${esc(S.rep.setor)}</span></p></div>
     <button class="btn link" id="btnSair" type="button">Sair</button>
   </header>
-  <div class="strip">
-    <div><b id="nSku">—</b><span>SKUs</span></div>
-    <div class="bad"><b id="nRup">—</b><span>Em ruptura</span></div>
-    <div class="warnc"><b id="nBaixo">—</b><span>Abaixo de 100</span></div>
+  <div class="strip" role="tablist" aria-label="Estoque">
+    <button type="button" role="tab" data-view="estoque" aria-selected="true"><b id="nSku">—</b><span>SKUs</span></button>
+    <button type="button" role="tab" data-view="ruptura" aria-selected="false" class="bad"><b id="nRup">—</b><span>Em ruptura</span></button>
+    <button type="button" role="tab" data-view="baixo" aria-selected="false" class="warnc"><b id="nBaixo">—</b><span>Abaixo de 100</span></button>
   </div>
   <div class="scan" id="scan"><span class="dot old"></span><span>Carregando o estoque…</span></div>
   <div id="faixaPush"></div>
   <div class="alert" id="alert" hidden><div><strong id="alertTitle"></strong><p id="alertText"></p></div><button class="btn primary small" id="alertGo" type="button">Ver pré-pedidos</button></div>
-  <nav class="tabs" role="tablist">
-    <button role="tab" data-view="estoque" aria-selected="true">Estoque</button>
-    <button role="tab" data-view="ruptura" aria-selected="false">Ruptura<span class="count" id="cntRup"></span></button>
-    <button role="tab" data-view="baixo" aria-selected="false">&lt; 100<span class="count" id="cntBaixo"></span></button>
-    <button role="tab" data-view="pedidos" aria-selected="false">Pedidos<span class="count" id="cntPed"></span></button>
-  </nav>
+  <div class="barra">
+    <button class="btn primary" id="btnNovoTop" type="button">+ Novo pré-pedido</button>
+    <button class="btn" type="button" data-view="pedidos" id="btnMeus">Meus pré-pedidos <span class="count" id="cntPed"></span></button>
+  </div>
 
   <section id="view-estoque">
     <h2>Estoque geral <small>todos os produtos da F&amp;F</small></h2>
@@ -160,7 +158,8 @@ function telaPrincipal() {
     </form>
   </section>`;
 
-  document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => mostrar(b.dataset.view)));
+  document.querySelectorAll(".strip [data-view], .barra [data-view]").forEach((b) => (b.onclick = () => mostrar(b.dataset.view)));
+  $("#btnNovoTop").onclick = () => { limparForm(); mostrar("novo"); };
   $("#alertGo").onclick = () => mostrar("pedidos");
   $("#btnSair").onclick = async () => { await S.sb.auth.signOut(); location.reload(); };
   $("#busca").oninput = renderBusca;
@@ -179,9 +178,8 @@ function telaPrincipal() {
 }
 function mostrar(v) {
   S.view = v;
-  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === v)));
-  const aba = v === "novo" ? "pedidos" : v;
-  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === aba)));
+  document.querySelectorAll(".strip [data-view]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === v)));
+  $("#btnMeus").classList.toggle("ativo", v === "pedidos" || v === "novo");
   ["estoque", "ruptura", "baixo", "pedidos", "novo"].forEach((x) => ($("#view-" + x).hidden = x !== v));
   window.scrollTo({ top: 0 });
 }
@@ -216,8 +214,6 @@ function renderEstoque() {
   $("#nSku").textContent = tem || "—";
   $("#nRup").textContent = tem ? rup.length : "—";
   $("#nBaixo").textContent = tem ? bx.length : "—";
-  $("#cntRup").textContent = tem ? String(rup.length) : "";
-  $("#cntBaixo").textContent = tem ? String(bx.length) : "";
   $("#boxVolta").hidden = !S.voltaram.length;
   $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><span class="name">${esc(p.nome)}</span><span class="pill warn">${p.estoque.toLocaleString("pt-BR")} un.</span><span class="sub mono">${esc(p.ean)}</span></div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   if (S.leitura) {

@@ -21,7 +21,9 @@ header h1{font-family:var(--f-display);font-stretch:80%;font-weight:800;font-siz
 header p{margin:4px 0 0;color:var(--muted);font-size:13.5px}
 .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.strip div{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.strip button{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0;position:relative}
+.strip button[aria-selected="true"]{background:var(--accent-soft);box-shadow:inset 0 -3px 0 var(--accent)}
+.strip button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .strip b{font-family:var(--f-display);font-stretch:85%;font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .strip span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .strip .bad b{color:var(--bad)} .strip .ok b{color:var(--ok)} .strip .warnc b{color:var(--warn)}
@@ -97,3 +99,6 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
 .alfabeto{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px}
 .alfabeto button{border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px var(--f-display);padding:9px 0;border-radius:8px;cursor:pointer}
 .alfabeto button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.barra{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.barra .btn{padding:12px 10px}
+.barra .btn.ativo{border-color:var(--accent);color:var(--accent)}
