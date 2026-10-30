@@ -146,7 +146,7 @@ function telaPrincipal() {
         <label>CNPJ do cliente <input id="fCnpj" inputmode="numeric" placeholder="CNPJ com 14 dígitos"></label>
         <label>Nome do cliente <span class="hint">(opcional)</span><input id="fNome" placeholder="Nome do cliente"></label>
         <label>ID da condição <input id="fCond" class="mono" inputmode="numeric"></label>
-        <label>Prazo <select id="fPrazo">${PRAZOS.map((p) => `<option>${esc(p)}</option>`).join("")}</select></label>
+        <label>Prazo <select id="fPrazo"><option value="">Selecione o prazo</option>${PRAZOS.map((p) => `<option>${esc(p)}</option>`).join("")}</select></label>
         <label>Nº OS <span class="hint">(opcional)</span><input id="fOs" class="mono" inputmode="numeric"></label>
       </div>
       <div class="items" id="fItens"></div>
@@ -414,7 +414,7 @@ function resultados(todos) {
 }
 function limparForm() {
   S.editId = null; S.fItens = []; S.forcar = false;
-  $("#form").reset(); $("#fCond").value = CONFIG.COND_PADRAO; $("#fPrazo").value = ler("prazo", "30/60/90 Dias");
+  $("#form").reset(); $("#fCond").value = CONFIG.COND_PADRAO; $("#fPrazo").value = "";
   $("#formTitle").textContent = "Novo pré-pedido"; $("#btnSalvar").textContent = "Salvar pré-pedido"; $("#formErr").hidden = true; $("#fResults").hidden = true;
   renderFormItens();
 }
@@ -429,7 +429,7 @@ async function salvar(e) {
   const err = $("#formErr"); err.hidden = true;
   const cnpj = dig($("#fCnpj").value), cond = dig($("#fCond").value), probs = [];
   if (cnpj.length < 13 || cnpj.length > 14) probs.push("Informe o CNPJ do cliente com 14 dígitos.");
-  if (!cond) probs.push("Informe o ID da condição.");
+  if (!cond) probs.push("Informe o ID da condição."); if (!$("#fPrazo").value) probs.push("Escolha o prazo.");
   if (!S.fItens.length) probs.push("Adicione pelo menos um produto.");
   if (S.fItens.some((i) => !i.qtde)) probs.push("Toda linha precisa de quantidade maior que zero.");
   if (probs.length) { err.hidden = false; err.innerHTML = probs.map(esc).join("<br>"); return; }
@@ -443,7 +443,6 @@ async function salvar(e) {
   S.forcar = false;
   const body = { cnpj: cnpj.padStart(14, "0"), cliente: $("#fNome").value.trim() || null, cond, prazo: $("#fPrazo").value, os: dig($("#fOs").value) || null,
     itens: S.fItens.map((i) => ({ ean: i.ean, nome: i.nome, qtde: +i.qtde, desc: +i.desc })) };
-  gravar("prazo", body.prazo);
   $("#btnSalvar").disabled = true;
   const { error } = S.editId ? await S.sb.from("prepedidos").update(body).eq("id", S.editId) : await S.sb.from("prepedidos").insert(body);
   $("#btnSalvar").disabled = false;
