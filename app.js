@@ -14,6 +14,21 @@ const ler = (k, d) => { try { const v = localStorage.getItem(k); return v === nu
 const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 3500); }
 
+const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const IC = {
+  caixa: svg('<path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/>'),
+  falta: svg('<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>'),
+  baixo: svg('<path d="M3 7l6 6 4-4 8 8"/><path d="M21 11v6h-6"/>'),
+  pedido: svg('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>'),
+  mais: svg('<path d="M12 5v14M5 12h14"/>'),
+  voltar: svg('<path d="M15 18l-6-6 6-6"/>'),
+  busca: svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
+  sino: svg('<path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 003.4 0"/>'),
+  ok: svg('<path d="M20 6L9 17l-5-5"/>'),
+  seta: svg('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+};
+const TITULOS = { estoque: "Estoque F&F", ruptura: "Em falta", baixo: "Estoque baixo", pedidos: "Pré-pedidos", novo: "Novo pré-pedido" };
+
 const S = { sb: null, user: null, rep: null, produtos: [], pm: {}, leitura: null, eventos: [], voltaram: [], pedidos: [], view: "estoque", sel: new Set(), editId: null, fItens: [], forcar: false };
 
 /* ===================== início ===================== */
@@ -34,13 +49,13 @@ const S = { sb: null, user: null, rep: null, produtos: [], pm: {}, leitura: null
 /* ===================== login ===================== */
 function telaLogin(msg) {
   $("#app").innerHTML = `
-  <form class="login card" id="fLogin" novalidate>
-    <div><h1>Estoque FFSP</h1><p>Estoque da F&amp;F Taboão e seus pré-pedidos.</p></div>
+  <form class="login" id="fLogin" novalidate>
+    <div><div class="logo">${IC.caixa}</div><h1>Estoque FFSP</h1><p>Estoque da F&amp;F Taboão e seus pré-pedidos.</p></div>
     <label>Setor <input id="lSetor" inputmode="numeric" autocomplete="username" placeholder="Número do seu setor" required></label>
     <label>Senha <input id="lSenha" type="password" autocomplete="current-password" required></label>
     <div class="notice bad" id="lErr" ${msg ? "" : "hidden"}>${esc(msg || "")}</div>
     <button class="btn primary" type="submit" id="lBtn">Entrar</button>
-    <p style="font-size:12.5px;color:var(--muted);margin:0">No primeiro acesso, a senha é o próprio número do setor. Você cria a sua logo depois.</p>
+    <p style="font-size:13px;color:var(--muted);margin:0;text-align:center">No primeiro acesso, a senha é o próprio número do setor. Você cria a sua logo depois.</p>
   </form>`;
   $("#fLogin").onsubmit = async (e) => {
     e.preventDefault();
@@ -64,8 +79,8 @@ async function entrou(user) {
 
 function telaSenha() {
   $("#app").innerHTML = `
-  <form class="login card" id="fSenha" novalidate>
-    <div><h1>Crie sua senha</h1><p>Setor ${esc(S.rep.setor)}. Use pelo menos 6 caracteres.</p></div>
+  <form class="login" id="fSenha" novalidate>
+    <div><div class="logo">${IC.caixa}</div><h1>Crie sua senha</h1><p>Setor ${esc(S.rep.setor)}. Use pelo menos 6 caracteres.</p></div>
     <label>Nova senha <input id="s1" type="password" autocomplete="new-password" minlength="6"></label>
     <label>Repita a senha <input id="s2" type="password" autocomplete="new-password" minlength="6"></label>
     <div class="notice bad" id="sErr" hidden></div>
@@ -90,83 +105,98 @@ function telaSenha() {
 /* ===================== tela principal ===================== */
 function telaPrincipal() {
   $("#app").innerHTML = `
-  <header>
-    <div><h1>Estoque FFSP</h1><p>F&amp;F – Taboão da Serra · setor <span class="mono">${esc(S.rep.setor)}</span></p></div>
-    <button class="btn link" id="btnSair" type="button">Sair</button>
+  <header class="appbar">
+    <button class="iconbtn" id="btnVoltar" type="button" aria-label="Voltar" hidden>${IC.voltar}</button>
+    <div class="ttl"><h1 id="ttl">Estoque F&amp;F</h1><div class="scan" id="scan"><span class="dot old"></span><span>Carregando…</span></div></div>
+    <button class="iconbtn" id="btnMenu" type="button" aria-label="Conta"><span class="avatar">${esc(String(S.rep.setor).slice(-3))}</span></button>
   </header>
-  <div class="strip" role="tablist" aria-label="Estoque">
-    <button type="button" role="tab" data-view="estoque" aria-selected="true"><b id="nSku">—</b><span>SKUs</span></button>
-    <button type="button" role="tab" data-view="ruptura" aria-selected="false" class="bad"><b id="nRup">—</b><span>Em ruptura</span></button>
-    <button type="button" role="tab" data-view="baixo" aria-selected="false" class="warnc"><b id="nBaixo">—</b><span>Abaixo de 100</span></button>
-  </div>
-  <div class="scan" id="scan"><span class="dot old"></span><span>Carregando o estoque…</span></div>
-  <div id="faixaPush"></div>
-  <div class="alert" id="alert" hidden><div><strong id="alertTitle"></strong><p id="alertText"></p></div><button class="btn primary small" id="alertGo" type="button">Ver pré-pedidos</button></div>
-  <div class="barra">
-    <button class="btn primary" id="btnNovoTop" type="button">+ Novo pré-pedido</button>
-    <button class="btn" type="button" data-view="pedidos" id="btnMeus">Meus pré-pedidos <span class="count" id="cntPed"></span></button>
-  </div>
+  <div class="menu" id="menu" hidden><div class="who">Setor <b>${esc(S.rep.setor)}</b>${S.rep.nome ? " · " + esc(S.rep.nome) : ""}<br>F&amp;F – Taboão da Serra</div><button type="button" id="btnAtualizar">Atualizar agora</button><button type="button" class="danger" id="btnSair">Sair</button></div>
 
+  <main>
   <section id="view-estoque">
-    <h2>Estoque geral <small>todos os produtos da F&amp;F</small></h2>
-    <input id="busca" type="search" placeholder="Digite o nome ou o EAN do produto" autocomplete="off">
-    <div class="alfabeto" id="alfabeto" role="group" aria-label="Produtos por letra"></div>
-    <div class="list" id="listGeral" hidden></div>
+    <div id="faixaPush"></div>
+    <div class="banner ok tap" id="alert" hidden><div class="ic">${IC.ok}</div><div class="tx"><strong id="alertTitle"></strong><p id="alertText"></p></div></div>
+    <div class="search">${IC.busca}<input id="busca" type="search" placeholder="Buscar produto ou EAN" autocomplete="off"></div>
     <div id="boxVolta" hidden>
-      <h2>Voltaram ao estoque <small id="voltaQuando"></small></h2>
-      <div class="list" id="listVolta"></div>
+      <div class="cap">Voltaram ao estoque <span id="voltaQuando" style="text-transform:none;font-weight:500"></span></div>
+      <div class="list" id="listVolta" style="margin-top:10px"></div>
     </div>
-    <details class="card"><summary>Histórico de entradas e rupturas</summary><div class="events" id="events"></div></details>
+    <div class="chips" id="alfabeto" role="group" aria-label="Ir para a letra"></div>
+    <div id="listGeral"></div>
+    <details class="hist"><summary>Histórico de entradas e faltas</summary><div class="events" id="events"></div></details>
   </section>
 
-  <section id="view-ruptura" hidden>
-    <div class="actions" style="justify-content:space-between"><h2>Em ruptura <small>sem estoque na F&amp;F</small></h2>
-      <span class="actions"><button class="btn primary" id="btnCopiarRup" type="button">Copiar para WhatsApp</button><button class="btn" id="btnShareRup" type="button" hidden>Enviar</button></span></div>
-    <div class="selbar"><span id="rupSelInfo"></span><span class="actions"><button class="btn small" type="button" id="rupTodos">Marcar todos</button><button class="btn small" type="button" id="rupNenhum">Desmarcar todos</button></span></div>
+  <section id="view-ruptura" class="has-dock" hidden>
+    <div class="selbar"><span id="rupSelInfo"></span><span class="actions"><button class="btn text" type="button" id="rupTodos">Marcar todos</button><button class="btn text" type="button" id="rupNenhum">Desmarcar</button></span></div>
     <div class="list" id="listRup"></div>
+    <div class="dock" data-dock="ruptura"><div><button class="btn wa" id="btnCopiarRup" type="button">Copiar para WhatsApp</button><button class="btn" id="btnShareRup" type="button" hidden>Enviar</button></div></div>
   </section>
 
-  <section id="view-baixo" hidden>
-    <div class="actions" style="justify-content:space-between"><h2>Abaixo de 100 unidades <small>do menor para o maior</small></h2>
-      <span class="actions"><button class="btn" id="btnCopiarBaixo" type="button">Copiar para WhatsApp</button></span></div>
+  <section id="view-baixo" class="has-dock" hidden>
+    <div class="selbar"><span>Menos de 100 unidades, do menor para o maior</span></div>
     <div class="list" id="listBaixo"></div>
+    <div class="dock" data-dock="baixo"><div><button class="btn wa" id="btnCopiarBaixo" type="button">Copiar para WhatsApp</button></div></div>
   </section>
 
-  <section id="view-pedidos" hidden>
-    <div class="actions" style="justify-content:space-between"><h2>Meus pré-pedidos <small>só você vê os seus</small></h2>
-      <span class="actions"><button class="btn" id="btnNovo" type="button">+ Novo pré-pedido</button><button class="btn primary" id="btnExport" type="button" disabled>Gerar planilha</button></span></div>
+  <section id="view-pedidos" class="has-dock" hidden>
+    <div class="selbar"><span>Só você vê os seus. Marque os prontos para gerar a planilha.</span></div>
     <div class="notice warn" id="exportHint" hidden></div>
     <div class="items" id="listPed"></div>
+    <div class="dock" data-dock="pedidos" id="dockExport" hidden><div><button class="btn primary" id="btnExport" type="button" disabled>Gerar planilha</button></div></div>
   </section>
 
   <section id="view-novo" hidden>
-    <h2 id="formTitle">Novo pré-pedido</h2>
-    <form class="card" id="form" novalidate>
-      <div class="grid2">
-        <label>CNPJ do cliente <input id="fCnpj" inputmode="numeric" placeholder="CNPJ com 14 dígitos"></label>
-        <label>Nome do cliente <span class="hint">(opcional)</span><input id="fNome" placeholder="Nome do cliente"></label>
-        <label>ID da condição <input id="fCond" class="mono" inputmode="numeric"></label>
-        <label>Prazo <select id="fPrazo"><option value="">Selecione o prazo</option>${PRAZOS.map((p) => `<option>${esc(p)}</option>`).join("")}</select></label>
-        <label>Nº OS <span class="hint">(opcional)</span><input id="fOs" class="mono" inputmode="numeric"></label>
+    <form id="form" novalidate style="display:flex;flex-direction:column;gap:14px">
+      <div class="cap">Cliente</div>
+      <div class="card">
+        <label>CNPJ do cliente <input id="fCnpj" inputmode="numeric" placeholder="14 dígitos"></label>
+        <label><span>Nome do cliente <span class="hint">(opcional)</span></span><input id="fNome" placeholder="Nome do cliente"></label>
       </div>
+      <div class="cap">Condição</div>
+      <div class="card">
+        <div class="grid2">
+          <label>Prazo <select id="fPrazo"><option value="">Selecione</option>${PRAZOS.map((p) => `<option>${esc(p)}</option>`).join("")}</select></label>
+          <label>ID da condição <input id="fCond" inputmode="numeric"></label>
+        </div>
+        <label><span>Nº OS <span class="hint">(opcional)</span></span><input id="fOs" inputmode="numeric"></label>
+      </div>
+      <div class="cap">Produtos</div>
       <div class="items" id="fItens"></div>
-      <label>Adicionar produto <input id="fBusca" type="search" placeholder="Digite o nome ou o EAN do produto" autocomplete="off"></label>
+      <div class="search">${IC.busca}<input id="fBusca" type="search" placeholder="Adicionar produto: nome ou EAN" autocomplete="off"></div>
       <div class="results" id="fResults" hidden></div>
-      <div class="total"><span>Total líquido estimado <span style="font-size:12px;color:var(--muted)">(preço fábrica − desconto, sem impostos)</span></span><b id="fTotal">R$ 0,00</b></div>
       <div class="notice warn" id="minWarn" hidden></div>
       <div class="notice bad" id="formErr" hidden></div>
-      <div class="actions"><button class="btn primary" type="submit" id="btnSalvar">Salvar pré-pedido</button><button class="btn" type="button" id="btnLimpar">Limpar</button></div>
+      <button class="btn text" type="button" id="btnLimpar" style="align-self:center;color:var(--bad)">Limpar tudo</button>
+      <div class="dock"><div><div class="sum"><small>Total estimado (PF − desc.)</small><b id="fTotal">R$ 0,00</b></div><button class="btn primary" type="submit" id="btnSalvar" style="flex:none;padding:12px 22px">Salvar</button></div></div>
     </form>
-  </section>`;
+  </section>
+  </main>
 
-  document.querySelectorAll(".strip [data-view], .barra [data-view]").forEach((b) => (b.onclick = () => mostrar(b.dataset.view)));
+  <button class="fab" id="btnNovoTop" type="button" hidden>${IC.mais}Novo</button>
+
+  <nav class="tabbar" role="tablist">
+    <button type="button" role="tab" data-view="estoque" aria-selected="true">${IC.caixa}<span>Estoque</span><span class="badge" id="nSku" hidden></span></button>
+    <button type="button" role="tab" data-view="ruptura" aria-selected="false">${IC.falta}<span>Em falta</span><span class="badge" id="nRup" hidden></span></button>
+    <button type="button" role="tab" data-view="baixo" aria-selected="false">${IC.baixo}<span>Baixo</span><span class="badge warn" id="nBaixo" hidden></span></button>
+    <button type="button" role="tab" data-view="pedidos" aria-selected="false" id="btnMeus">${IC.pedido}<span>Pré-pedidos</span><span class="badge ok" id="cntPed" hidden></span></button>
+  </nav>`;
+
+  document.querySelectorAll(".tabbar [data-view]").forEach((b) => (b.onclick = () => mostrar(b.dataset.view)));
   $("#btnNovoTop").onclick = () => { limparForm(); mostrar("novo"); };
-  $("#alertGo").onclick = () => mostrar("pedidos");
+  $("#btnVoltar").onclick = () => mostrar("pedidos");
+  $("#alert").onclick = () => mostrar("pedidos");
+  $("#btnMenu").onclick = (e) => { e.stopPropagation(); $("#menu").hidden = !$("#menu").hidden; };
+  document.addEventListener("click", (e) => { if (!e.target.closest("#menu")) $("#menu").hidden = true; });
+  $("#btnAtualizar").onclick = () => { $("#menu").hidden = true; carregar().then(() => toast("Atualizado.")); };
   $("#btnSair").onclick = async () => { await S.sb.auth.signOut(); location.reload(); };
   $("#busca").oninput = renderBusca;
-  $("#alfabeto").addEventListener("click", (e) => { const b = e.target.closest("[data-letra]"); if (!b) return; S.letra = S.letra === b.dataset.letra ? null : b.dataset.letra; renderBusca(); });
+  $("#alfabeto").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-letra]"); if (!b) return;
+    const alvo = document.getElementById("L-" + b.dataset.letra); if (!alvo) return;
+    const top = alvo.getBoundingClientRect().top + window.scrollY - parseFloat(getComputedStyle($(".appbar")).height) + 1;
+    window.scrollTo({ top, behavior: "smooth" });
+  });
   $("#btnExport").onclick = exportar;
-  $("#btnNovo").onclick = () => { limparForm(); mostrar("novo"); };
   $("#btnCopiarRup").onclick = () => { if (!rupturas().some((p) => !fora().has(p.ean))) { toast("Marque pelo menos um produto para a mensagem."); return; } copiarLista("rup"); };
   $("#listRup").addEventListener("change", (e) => { const c = e.target.closest("[data-rup]"); if (c) marcarRup([c.dataset.rup], c.checked); });
   $("#rupTodos").onclick = () => marcarRup(rupturas().map((p) => p.ean), true);
@@ -177,14 +207,20 @@ function telaPrincipal() {
   ligarForm();
   limparForm();
   renderPush();
+  mostrar("estoque");
   carregar();
   clearInterval(S.timer); S.timer = setInterval(() => document.visibilityState === "visible" && carregar(), 120000);
 }
 function mostrar(v) {
   S.view = v;
-  document.querySelectorAll(".strip [data-view]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === v)));
-  $("#btnMeus").classList.toggle("ativo", v === "pedidos" || v === "novo");
+  const aba = v === "novo" ? "pedidos" : v;
+  document.querySelectorAll(".tabbar [data-view]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === aba)));
   ["estoque", "ruptura", "baixo", "pedidos", "novo"].forEach((x) => ($("#view-" + x).hidden = x !== v));
+  document.body.classList.toggle("full", v === "novo");
+  $("#btnVoltar").hidden = v !== "novo";
+  $("#btnNovoTop").hidden = v !== "pedidos";
+  $("#ttl").textContent = v === "novo" ? (S.editId ? "Editar pré-pedido" : "Novo pré-pedido") : TITULOS[v];
+  $("#menu").hidden = true;
   window.scrollTo({ top: 0 });
 }
 
@@ -209,56 +245,58 @@ async function carregar() {
 
 /* ===================== estoque ===================== */
 const pillEst = (p) => !p ? `<span class="pill muted">fora do portfólio</span>` : p.estoque ? `<span class="pill ok">${p.estoque.toLocaleString("pt-BR")} un.</span>` : `<span class="pill bad">sem estoque</span>`;
+const qEst = (p) => !p ? `<div class="q muted">fora do<br>portfólio</div>` : !p.estoque ? `<div class="q bad">Sem<br>estoque</div>` : `<div class="q ${p.estoque < 100 ? "warn" : "ok"}">${p.estoque.toLocaleString("pt-BR")}<small>unidades</small></div>`;
 const dt = (iso, o = { dateStyle: "short", timeStyle: "short" }) => new Date(iso).toLocaleString("pt-BR", o);
 const rupturas = () => S.produtos.filter((p) => !p.estoque);
 // Produtos de ruptura que o representante tirou da mensagem (ex.: lançamentos). Fica salvo no aparelho.
 const fora = () => new Set(ler("rup_fora", []));
 function renderRup() {
   const rup = rupturas(), f = fora(), box = $("#listRup"); if (!box) return;
-  box.innerHTML = rup.length ? rup.map((p) => `<label class="row sel"><input type="checkbox" data-rup="${esc(p.ean)}" ${f.has(p.ean) ? "" : "checked"}><span class="name">${esc(p.nome)}<span class="sub mono" style="display:block">${esc(p.ean)}</span></span><span class="pill bad">sem estoque</span></label>`).join("")
-    : `<div class="empty">${S.produtos.length ? "Nenhum produto em ruptura." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
+  box.innerHTML = rup.length ? rup.map((p) => `<label class="row sel"><input type="checkbox" data-rup="${esc(p.ean)}" ${f.has(p.ean) ? "" : "checked"}><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub">EAN ${esc(p.ean)}</div></div></label>`).join("")
+    : `<div class="empty">${S.produtos.length ? "Nenhum produto em falta. 🎉" : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   const n = rup.filter((p) => !f.has(p.ean)).length;
-  $("#rupSelInfo").textContent = rup.length ? `${n} de ${rup.length} vão na mensagem` : "";
+  $("#rupSelInfo").textContent = rup.length ? `${n} de ${rup.length} na mensagem` : "";
+  $("#btnCopiarRup").textContent = n ? `Copiar ${n} para o WhatsApp` : "Copiar para o WhatsApp";
 }
 function marcarRup(eans, incluir) { const f = fora(); eans.forEach((e) => (incluir ? f.delete(e) : f.add(e))); gravar("rup_fora", [...f]); renderRup(); }
 const baixos = () => S.produtos.filter((p) => p.estoque > 0 && p.estoque < 100).sort((a, b) => a.estoque - b.estoque);
-const linhaProd = (p) => `<div class="row"><span class="name">${esc(p.nome)}</span>${pillEst(p)}<span class="sub"><span class="mono">${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>máx. Geral ${p.desc_max}%</span>` : ""}</span></div>`;
+const linhaProd = (p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>até ${p.desc_max}%</span>` : ""}</div></div>${qEst(p)}</div>`;
+const badge = (el, n) => { el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n || ""); };
 function renderEstoque() {
   const rup = rupturas(), bx = baixos(), tem = S.produtos.length;
-  $("#nSku").textContent = tem || "—";
-  $("#nRup").textContent = tem ? rup.length : "—";
-  $("#nBaixo").textContent = tem ? bx.length : "—";
+  badge($("#nRup"), tem ? rup.length : 0);
+  badge($("#nBaixo"), tem ? bx.length : 0);
   $("#boxVolta").hidden = !S.voltaram.length;
-  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><span class="name">${esc(p.nome)}</span><span class="pill warn">${p.estoque.toLocaleString("pt-BR")} un.</span><span class="sub mono">${esc(p.ean)}</span></div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
+  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub">EAN ${esc(p.ean)}</div></div>${qEst(p)}</div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   if (S.leitura) {
     const h = (Date.now() - new Date(S.leitura.lido_em)) / 36e5;
-    $("#scan").innerHTML = `<span class="dot${h > 8 ? " old" : ""}"></span><span>Última varredura: <b>${dt(S.leitura.lido_em)}</b> · posição Sales Farma ${esc(S.leitura.posicao || "—")}</span>`;
-    $("#voltaQuando").textContent = "na varredura de " + dt(S.leitura.lido_em);
-  } else $("#scan").innerHTML = `<span class="dot old"></span><span>Nenhuma varredura de estoque publicada ainda.</span>`;
-  $("#listVolta").innerHTML = S.voltaram.length ? S.voltaram.map((e) => `<div class="row"><span class="name">${esc(e.nome)}</span><span class="pill ok">${(e.qtd || 0).toLocaleString("pt-BR")} un.</span><span class="sub mono">${esc(e.ean)}</span></div>`).join("") : `<div class="empty">Nenhum produto voltou na última varredura.</div>`;
+    const hoje = new Date(S.leitura.lido_em).toDateString() === new Date().toDateString();
+    const quando = hoje ? "hoje às " + dt(S.leitura.lido_em, { hour: "2-digit", minute: "2-digit" }) : dt(S.leitura.lido_em, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    $("#scan").innerHTML = `<span class="dot${h > 8 ? " old" : ""}"></span><span>Atualizado ${quando}</span>`;
+    $("#voltaQuando").textContent = "· " + quando;
+  } else $("#scan").innerHTML = `<span class="dot old"></span><span>Aguardando a primeira leitura</span>`;
+  $("#listVolta").innerHTML = S.voltaram.map((e) => `<div class="row"><div class="main"><div class="name">${esc(e.nome)}</div><div class="sub">EAN ${esc(e.ean)}</div></div><div class="q ok">+${(e.qtd || 0).toLocaleString("pt-BR")}<small>unidades</small></div></div>`).join("");
   renderRup();
   renderBusca();
-  $("#events").innerHTML = S.eventos.length ? S.eventos.slice(0, 60).map((x) => `<div><time>${dt(x.criado_em, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</time><span class="pill ${x.tipo === "ENTROU" ? "ok" : "bad"}">${x.tipo === "ENTROU" ? "entrou" : "zerou"}</span><span>${esc(x.nome)}${x.tipo === "ENTROU" && x.qtd ? ` · <span class="qty">${x.qtd.toLocaleString("pt-BR")} un.</span>` : ""}</span></div>`).join("") : `<span class="empty">Sem registros ainda.</span>`;
+  $("#events").innerHTML = S.eventos.length ? S.eventos.slice(0, 60).map((x) => `<div><time>${dt(x.criado_em, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</time><span style="flex:1;min-width:0">${esc(x.nome)}</span><span class="pill ${x.tipo === "ENTROU" ? "ok" : "bad"}">${x.tipo === "ENTROU" ? "entrou" + (x.qtd ? " " + x.qtd.toLocaleString("pt-BR") : "") : "zerou"}</span></div>`).join("") : `<div class="empty">Sem registros ainda.</div>`;
 }
 function buscar(q, lim = 60) { q = norm(q).trim(); if (!q) return []; const ws = q.split(/\s+/); return S.produtos.filter((p) => { const h = norm(p.nome) + " " + p.ean; return ws.every((w) => h.includes(w)); }).slice(0, lim); }
 const letraDe = (n) => { const c = norm(n).trim()[0] || "#"; return /[A-Z]/.test(c) ? c : "#"; };
 function renderBusca() {
   const q = $("#busca")?.value || "", box = $("#listGeral"), alf = $("#alfabeto"); if (!box) return;
-  if (!S.produtos.length) { alf.innerHTML = ""; box.hidden = false; box.innerHTML = `<div class="empty">O estoque aparece aqui depois da primeira varredura.</div>`; return; }
+  if (!S.produtos.length) { alf.innerHTML = ""; box.innerHTML = `<div class="list"><div class="empty">O estoque aparece aqui depois da primeira varredura.</div></div>`; return; }
   if (q.trim()) {
-    alf.hidden = true; box.hidden = false;
+    alf.hidden = true; $("#boxVolta").hidden = true;
     const r = buscar(q, 500);
-    box.innerHTML = r.length ? r.map(linhaProd).join("") : `<div class="empty">Nenhum produto encontrado com esse nome ou EAN.</div>`;
+    box.innerHTML = `<div class="list">${r.length ? r.map(linhaProd).join("") : `<div class="empty">Nenhum produto encontrado.</div>`}</div>`;
     return;
   }
-  alf.hidden = false;
-  const tem = new Set(S.produtos.map((p) => letraDe(p.nome)));
-  const letras = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].filter((l) => tem.has(l)).concat(tem.has("#") ? ["#"] : []);
-  if (S.letra && !tem.has(S.letra)) S.letra = null;
-  alf.innerHTML = letras.map((l) => `<button type="button" data-letra="${l}" aria-pressed="${S.letra === l}">${l}</button>`).join("");
-  if (!S.letra) { box.hidden = false; box.innerHTML = `<div class="empty">Toque numa letra para ver os produtos, ou digite o nome ou o EAN acima.</div>`; return; }
-  const r = S.produtos.filter((p) => letraDe(p.nome) === S.letra);
-  box.hidden = false; box.innerHTML = r.map(linhaProd).join("");
+  alf.hidden = false; $("#boxVolta").hidden = !S.voltaram.length;
+  const grupos = {};
+  S.produtos.forEach((p) => (grupos[letraDe(p.nome)] ||= []).push(p));
+  const letras = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ#"].filter((l) => grupos[l]);
+  alf.innerHTML = letras.map((l) => `<button type="button" data-letra="${l}">${l}</button>`).join("");
+  box.innerHTML = letras.map((l) => `<div class="sec" id="L-${l}">${l}</div><div class="list">${grupos[l].map(linhaProd).join("")}</div>`).join("");
 }
 
 /* ===================== copiar / enviar no WhatsApp ===================== */
@@ -288,12 +326,12 @@ function renderPush() {
   const el = $("#faixaPush"); if (!el) return;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent), standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   if (!("Notification" in window) || !("PushManager" in window) || !("serviceWorker" in navigator)) {
-    el.innerHTML = ios && !standalone ? `<div class="alert info"><div><strong>Instale o app para receber avisos</strong><p>No Safari, toque em Compartilhar e depois em <b>Adicionar à Tela de Início</b>. Abra pelo ícone novo.</p></div></div>` : "";
+    el.innerHTML = ios && !standalone ? `<div class="banner info"><div class="ic">${IC.sino}</div><div class="tx"><strong>Instale o app para receber avisos</strong><p>No Safari, toque em Compartilhar e depois em <b>Adicionar à Tela de Início</b>. Abra pelo ícone novo.</p></div></div>` : "";
     return;
   }
-  if (Notification.permission === "denied") { el.innerHTML = `<div class="alert info"><div><strong>Avisos bloqueados</strong><p>Libere as notificações do Estoque FFSP nos Ajustes do celular.</p></div></div>`; return; }
+  if (Notification.permission === "denied") { el.innerHTML = `<div class="banner info"><div class="ic">${IC.sino}</div><div class="tx"><strong>Avisos bloqueados</strong><p>Libere as notificações do Estoque FFSP nos Ajustes do celular.</p></div></div>`; return; }
   if (Notification.permission === "granted" && ler("push_ok", false)) { el.innerHTML = ""; return; }
-  el.innerHTML = `<div class="alert info"><div><strong>Ative os avisos</strong><p>O celular avisa quando um produto entrar ou zerar na F&amp;F, mesmo bloqueado.</p></div><button class="btn primary small" id="btnPush" type="button">Ativar</button></div>`;
+  el.innerHTML = `<div class="banner info"><div class="ic">${IC.sino}</div><div class="tx"><strong>Ative os avisos</strong><p>Saiba na hora quando um produto entrar ou zerar.</p></div><button class="btn primary small" id="btnPush" type="button">Ativar</button></div>`;
   $("#btnPush").onclick = ativarPush;
 }
 async function ativarPush() {
@@ -329,28 +367,28 @@ function renderPedidos() {
   const ord = { ready: 0, wait: 1, exp: 2 };
   const lista = S.pedidos.map((po) => ({ po, st: status(po), tot: totPed(po) })).sort((a, b) => ord[a.st.k] - ord[b.st.k]);
   const prontos = lista.filter((x) => x.st.k === "ready");
-  $("#cntPed").textContent = S.pedidos.length ? String(S.pedidos.length) : "";
+  badge($("#cntPed"), prontos.length);
   if (prontos.length) {
     $("#alert").hidden = false;
     $("#alertTitle").textContent = prontos.length === 1 ? "1 pré-pedido pronto para importar" : `${prontos.length} pré-pedidos prontos para importar`;
-    $("#alertText").textContent = "Todos os itens têm estoque na F&F. Gere a planilha e importe no Sales Farma.";
+    $("#alertText").textContent = "Todos os itens têm estoque. Toque para gerar a planilha.";
   } else $("#alert").hidden = true;
   for (const id of [...S.sel]) if (!prontos.some((x) => x.po.id === id)) S.sel.delete(id);
-  if (!lista.length) { $("#listPed").innerHTML = `<div class="list"><div class="empty">Você ainda não tem pré-pedidos. Toque em <b>+ Novo pré-pedido</b> para cadastrar o primeiro.</div></div>`; updExport(); return; }
+  if (!lista.length) { $("#listPed").innerHTML = `<div class="list"><div class="empty">Você ainda não tem pré-pedidos.<br>Toque em <b>Novo</b> para cadastrar o primeiro.</div></div>`; updExport(); return; }
   $("#listPed").innerHTML = lista.map(({ po, st, tot }) => `
-  <article class="po ${st.k === "ready" ? "ready" : ""}">
-    <div class="po-head"><div class="who">${st.k === "ready" ? `<input type="checkbox" data-sel="${po.id}" ${S.sel.has(po.id) ? "checked" : ""} aria-label="Incluir na planilha">` : ""}
-      <div><div style="font-weight:700">${esc(po.cliente || "Cliente")}</div><div class="mono" style="font-size:12.5px;color:var(--muted)">${fmtCnpj(po.cnpj)}</div></div></div>
+  <article class="po">
+    <div class="po-head">${st.k === "ready" ? `<input type="checkbox" data-sel="${po.id}" ${S.sel.has(po.id) ? "checked" : ""} aria-label="Incluir na planilha">` : ""}
+      <div class="who"><div class="cli">${esc(po.cliente || "Cliente")}</div><div class="cnpj">${fmtCnpj(po.cnpj)}</div></div>
       <span class="pill ${st.cls}">${esc(st.label)}</span></div>
     <div class="po-lines">${(po.itens || []).map((it) => { const p = S.pm[it.ean]; return `<div><span>${esc(p?.nome || it.nome)} · <span class="qty">${it.qtde}</span> un. · ${it.desc}%</span>${pillEst(p)}</div>`; }).join("")}</div>
-    <div class="po-foot"><span>${brl(tot)} · ${esc(po.prazo)} · cond. <span class="mono">${esc(po.cond)}</span>${tot < MIN ? ` · <b style="color:var(--warn)">abaixo do mínimo</b>` : ""}</span>
+    <div class="po-foot"><span><b>${brl(tot)}</b> · ${esc(po.prazo)}${tot < MIN ? ` · <span style="color:var(--warn);font-weight:600">abaixo do mínimo</span>` : ""}</span>
       <span class="actions">${po.exportado_em ? `<button class="btn small" data-reabrir="${po.id}" type="button">Reabrir</button>` : `<button class="btn small" data-edit="${po.id}" type="button">Editar</button>`}<button class="btn small danger" data-del="${po.id}" type="button">Excluir</button></span></div>
-    <div class="notice bad" data-confirm="${po.id}" hidden><span>Excluir este pré-pedido? Isso não pode ser desfeito.</span><span class="actions"><button class="btn small danger" data-delok="${po.id}" type="button">Excluir</button><button class="btn small" data-delno="${po.id}" type="button">Cancelar</button></span></div>
+    <div class="notice bad" data-confirm="${po.id}" hidden><span>Excluir este pré-pedido? Isso não pode ser desfeito.</span><span class="actions"><button class="btn small primary" style="background:var(--bad)" data-delok="${po.id}" type="button">Excluir</button><button class="btn small" data-delno="${po.id}" type="button">Cancelar</button></span></div>
   </article>`).join("");
   updExport();
 }
 function updExport() {
-  const n = S.sel.size, b = $("#btnExport"); b.disabled = !n; b.textContent = n ? `Gerar planilha (${n})` : "Gerar planilha";
+  const n = S.sel.size, b = $("#btnExport"); b.disabled = !n; b.textContent = n ? `Gerar planilha (${n})` : "Gerar planilha"; $("#dockExport").hidden = !n;
   const baixos = S.pedidos.filter((p) => S.sel.has(p.id) && totPed(p) < MIN).length, h = $("#exportHint");
   h.hidden = !baixos; if (baixos) h.textContent = `${baixos} pedido(s) selecionado(s) estão abaixo de R$ 250,00 e podem ser recusados no Sales Farma.`;
 }
@@ -401,7 +439,13 @@ function ligarForm() {
     if (d != null) S.fItens[d].desc = Math.min(99, Math.max(0, parseInt(e.target.value) || 0));
     updTotal();
   });
-  $("#fItens").addEventListener("click", (e) => { const r = e.target.closest("[data-rm]"); if (r) { S.fItens.splice(+r.dataset.rm, 1); renderFormItens(); } });
+  $("#fItens").addEventListener("click", (e) => {
+    const r = e.target.closest("[data-rm]"); if (r) { S.fItens.splice(+r.dataset.rm, 1); renderFormItens(); return; }
+    const st = e.target.closest("[data-step]"); if (!st) return;
+    const inp = $("#" + st.dataset.step), min = +inp.min || 0, max = inp.max ? +inp.max : 1e9;
+    inp.value = Math.min(max, Math.max(min, (parseInt(inp.value) || 0) + +st.dataset.by));
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+  });
   $("#fBusca").oninput = () => resultados(false);
   $("#fResults").addEventListener("click", (e) => {
     const b = e.target.closest("[data-add]"); if (!b) return;
@@ -414,11 +458,11 @@ function ligarForm() {
 }
 function renderFormItens() {
   const box = $("#fItens"); if (!box) return;
-  box.innerHTML = S.fItens.map((it, i) => { const p = S.pm[it.ean]; return `
-    <div class="item"><div><div class="pname">${esc(p?.nome || it.nome)}</div><div class="pmeta"><span class="mono">${esc(it.ean)}</span>${p?.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p?.desc_max ? `<span>máx. Geral ${p.desc_max}%</span>` : ""}${pillEst(p)}</div></div>
-      <label>Qtde<input id="q${i}" type="number" min="1" step="1" inputmode="numeric" value="${esc(it.qtde)}" data-q="${i}"></label>
-      <label>Desc. %<input id="d${i}" type="number" min="0" max="99" step="1" inputmode="numeric" value="${esc(it.desc)}" data-d="${i}"></label>
-      <button class="btn small danger" type="button" data-rm="${i}">Remover</button></div>`; }).join("");
+  box.innerHTML = S.fItens.length ? S.fItens.map((it, i) => { const p = S.pm[it.ean]; return `
+    <div class="item"><div class="top"><div style="flex:1;min-width:0"><div class="pname">${esc(p?.nome || it.nome)}</div><div class="pmeta"><span>${esc(it.ean)}</span>${p?.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p?.desc_max ? `<span>até ${p.desc_max}%</span>` : ""}${pillEst(p)}</div></div><button class="rm" type="button" data-rm="${i}" aria-label="Remover">×</button></div>
+      <div class="nums"><label>Quantidade<div class="stepper"><button type="button" data-step="q${i}" data-by="-1">−</button><input id="q${i}" type="number" min="1" step="1" inputmode="numeric" value="${esc(it.qtde)}" data-q="${i}"><button type="button" data-step="q${i}" data-by="1">+</button></div></label>
+      <label>Desconto %<div class="stepper"><button type="button" data-step="d${i}" data-by="-1">−</button><input id="d${i}" type="number" min="0" max="99" step="1" inputmode="numeric" value="${esc(it.desc)}" data-d="${i}"><button type="button" data-step="d${i}" data-by="1">+</button></div></label></div></div>`; }).join("")
+    : `<div class="list"><div class="empty">Nenhum produto ainda. Busque abaixo para adicionar.</div></div>`;
   updTotal();
 }
 function updTotal() {
@@ -436,19 +480,19 @@ function resultados(todos) {
   const r = q.trim() ? buscar(q) : todos ? S.produtos.filter((p) => p.estoque) : [];
   if (!q.trim() && !todos) { box.hidden = true; return; }
   box.hidden = false;
-  box.innerHTML = r.length ? r.map((p) => `<button type="button" data-add="${esc(p.ean)}"><span><b>${esc(p.nome)}</b><br><span class="mono" style="font-size:12px;color:var(--muted)">${esc(p.ean)}${p.pf ? " · PF " + brl(p.pf) : ""}</span></span>${pillEst(p)}</button>`).join("") : `<div class="empty">Nenhum produto encontrado.</div>`;
+  box.innerHTML = r.length ? r.map((p) => `<button type="button" data-add="${esc(p.ean)}"><span class="main"><b>${esc(p.nome)}</b><br><span style="font-size:12.5px;color:var(--muted)">${pillEst(p)} ${p.pf ? " PF " + brl(p.pf) : ""}</span></span><span class="add">+</span></button>`).join("") : `<div class="empty">Nenhum produto encontrado.</div>`;
 }
 function limparForm() {
   S.editId = null; S.fItens = []; S.forcar = false;
   $("#form").reset(); $("#fCond").value = CONFIG.COND_PADRAO; $("#fPrazo").value = "";
-  $("#formTitle").textContent = "Novo pré-pedido"; $("#btnSalvar").textContent = "Salvar pré-pedido"; $("#formErr").hidden = true; $("#fResults").hidden = true;
+  $("#btnSalvar").textContent = "Salvar"; $("#formErr").hidden = true; $("#fResults").hidden = true;
   renderFormItens();
 }
 function abrirEdicao(id) {
   const po = S.pedidos.find((p) => p.id === id); if (!po) return;
   S.editId = id; S.fItens = (po.itens || []).map((x) => ({ ...x })); S.forcar = false;
   $("#fCnpj").value = fmtCnpj(po.cnpj); $("#fNome").value = po.cliente || ""; $("#fCond").value = po.cond; $("#fPrazo").value = po.prazo; $("#fOs").value = po.os || "";
-  $("#formTitle").textContent = "Editar pré-pedido"; $("#btnSalvar").textContent = "Salvar alterações"; renderFormItens(); mostrar("novo");
+  $("#btnSalvar").textContent = "Salvar"; renderFormItens(); mostrar("novo");
 }
 async function salvar(e) {
   e.preventDefault();
