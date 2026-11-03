@@ -2,7 +2,8 @@
    Ativada pelo favorito "Varredura F&F". Lê o estoque nos horários abaixo e grava no Estoque FFSP,
    que atualiza o app, o HTML de importação e dispara os avisos para a equipe. Não usa o Claude. */
 (function () {
-  var HORARIOS = [8, 11, 14, 17, 20];          // horas da varredura (seg a sáb)
+  var HORARIOS = [8, 11, 14, 17, 20];          // horas da varredura (segunda a sexta)
+  var diaUtil = function (d) { var w = d.getDay(); return w >= 1 && w <= 5; };
   var MINUTO = 6;                               // a F&F atualiza em :04, :24 e :44
   var MANTER_SESSAO_MIN = 8;                    // consulta leve para o Sales não derrubar o login
   var RPC = 'https://hrqsohrhebynjsnmxjkb.supabase.co/rest/v1/rpc/ingest_estoque';
@@ -26,7 +27,7 @@
   function proximo(agora) {
     for (var i = 0; i < 8; i++) {
       var d = new Date(agora); d.setDate(d.getDate() + i);
-      if (d.getDay() === 0) continue; // domingo
+      if (!diaUtil(d)) continue; // sábado e domingo
       for (var j = 0; j < HORARIOS.length; j++) {
         var t = new Date(d); t.setHours(HORARIOS[j], MINUTO, 0, 0);
         if (t > agora) return t;
@@ -91,7 +92,7 @@
   var ultimoKeep = 0;
   function tique() {
     var agora = new Date();
-    if (agora.getDay() !== 0) {
+    if (diaUtil(agora)) {
       for (var j = 0; j < HORARIOS.length; j++) {
         var t = new Date(agora); t.setHours(HORARIOS[j], MINUTO, 0, 0);
         var fim = new Date(t); fim.setMinutes(fim.getMinutes() + 170);
@@ -102,7 +103,7 @@
       }
     }
     var h = agora.getHours();
-    if (h >= 7 && h < 23 && Date.now() - ultimoKeep > MANTER_SESSAO_MIN * 60000 && !estado.rodando) {
+    if (diaUtil(agora) && h >= 7 && h < 23 && Date.now() - ultimoKeep > MANTER_SESSAO_MIN * 60000 && !estado.rodando) {
       ultimoKeep = Date.now();
       lerEstoque().catch(function (e) { if (String(e.message) === 'sessao') { estado.erro = 'O login do Sales caiu. Entre de novo e clique no favorito Varredura F&F.'; render(); avisarProblema('O login do Sales Farma caiu e a varredura parou. Entre de novo no Sales e clique no favorito "Varredura F&F".'); } });
     }
