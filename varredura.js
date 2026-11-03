@@ -4,7 +4,7 @@
 (function () {
   var HORARIOS = [8, 11, 14, 17, 20];          // horas da varredura (seg a sáb)
   var MINUTO = 6;                               // a F&F atualiza em :04, :24 e :44
-  var MANTER_SESSAO_MIN = 12;                   // consulta leve para o Sales não derrubar o login
+  var MANTER_SESSAO_MIN = 8;                    // consulta leve para o Sales não derrubar o login
   var RPC = 'https://hrqsohrhebynjsnmxjkb.supabase.co/rest/v1/rpc/ingest_estoque';
   var KEY = 'sb_publishable_e5wV4RzjmKp5la1xrc5dYw_RaEAKIG4';
   var DIST = '10854165000850';
