@@ -227,7 +227,7 @@ function mostrar(v) {
 /* ===================== dados ===================== */
 async function carregar() {
   const [p, l, ev, ped] = await Promise.all([
-    S.sb.from("produtos").select("ean,nome,pf,desc_max,estoque").order("nome"),
+    S.sb.from("produtos").select("ean,nome,pf,desc_max,estoque,cx_embarque").order("nome"),
     S.sb.from("leituras").select("*").order("id", { ascending: false }).limit(1).maybeSingle(),
     S.sb.from("eventos").select("*").order("id", { ascending: false }).limit(80),
     S.sb.from("prepedidos").select("*").order("criado_em", { ascending: false }),
@@ -260,14 +260,15 @@ function renderRup() {
 }
 function marcarRup(eans, incluir) { const f = fora(); eans.forEach((e) => (incluir ? f.delete(e) : f.add(e))); gravar("rup_fora", [...f]); renderRup(); }
 const baixos = () => S.produtos.filter((p) => p.estoque > 0 && p.estoque < 100).sort((a, b) => a.estoque - b.estoque);
-const linhaProd = (p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>até ${p.desc_max}%</span>` : ""}</div></div>${qEst(p)}</div>`;
+const linhaProd = (p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>até ${p.desc_max}%</span>` : ""}${cxTxt(p)}</div></div>${qEst(p)}</div>`;
+const cxTxt = (p) => (p?.cx_embarque ? `<span>Cx emb. ${p.cx_embarque} un.</span>` : "");
 const badge = (el, n) => { el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n || ""); };
 function renderEstoque() {
   const rup = rupturas(), bx = baixos(), tem = S.produtos.length;
   badge($("#nRup"), tem ? rup.length : 0);
   badge($("#nBaixo"), tem ? bx.length : 0);
   $("#boxVolta").hidden = !S.voltaram.length;
-  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub">EAN ${esc(p.ean)}</div></div>${qEst(p)}</div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
+  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>EAN ${esc(p.ean)}</span>${cxTxt(p)}</div></div>${qEst(p)}</div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   if (S.leitura) {
     const h = (Date.now() - new Date(S.leitura.lido_em)) / 36e5;
     const hoje = new Date(S.leitura.lido_em).toDateString() === new Date().toDateString();
@@ -459,7 +460,7 @@ function ligarForm() {
 function renderFormItens() {
   const box = $("#fItens"); if (!box) return;
   box.innerHTML = S.fItens.length ? S.fItens.map((it, i) => { const p = S.pm[it.ean]; return `
-    <div class="item"><div class="top"><div style="flex:1;min-width:0"><div class="pname">${esc(p?.nome || it.nome)}</div><div class="pmeta"><span>${esc(it.ean)}</span>${p?.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p?.desc_max ? `<span>até ${p.desc_max}%</span>` : ""}${pillEst(p)}</div></div><button class="rm" type="button" data-rm="${i}" aria-label="Remover">×</button></div>
+    <div class="item"><div class="top"><div style="flex:1;min-width:0"><div class="pname">${esc(p?.nome || it.nome)}</div><div class="pmeta"><span>${esc(it.ean)}</span>${p?.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p?.desc_max ? `<span>até ${p.desc_max}%</span>` : ""}${cxTxt(p)}${pillEst(p)}</div></div><button class="rm" type="button" data-rm="${i}" aria-label="Remover">×</button></div>
       <div class="nums"><label>Quantidade<div class="stepper"><button type="button" data-step="q${i}" data-by="-1">−</button><input id="q${i}" type="number" min="1" step="1" inputmode="numeric" value="${esc(it.qtde)}" data-q="${i}"><button type="button" data-step="q${i}" data-by="1">+</button></div></label>
       <label>Desconto %<div class="stepper"><button type="button" data-step="d${i}" data-by="-1">−</button><input id="d${i}" type="number" min="0" max="99" step="1" inputmode="numeric" value="${esc(it.desc)}" data-d="${i}"><button type="button" data-step="d${i}" data-by="1">+</button></div></label></div></div>`; }).join("")
     : `<div class="list"><div class="empty">Nenhum produto ainda. Busque abaixo para adicionar.</div></div>`;
