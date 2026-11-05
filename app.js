@@ -21,6 +21,7 @@ const IC = {
   baixo: svg('<path d="M3 7l6 6 4-4 8 8"/><path d="M21 11v6h-6"/>'),
   pedido: svg('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>'),
   hist: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  wa: svg('<path d="M3 21l1.6-4.7A8.5 8.5 0 1112 20.5a8.4 8.4 0 01-4.3-1.2L3 21z"/>'),
   mais: svg('<path d="M12 5v14M5 12h14"/>'),
   voltar: svg('<path d="M15 18l-6-6 6-6"/>'),
   busca: svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
@@ -30,7 +31,7 @@ const IC = {
 };
 const TITULOS = { estoque: "Estoque F&F", ruptura: "Em falta", baixo: "Estoque baixo", pedidos: "Pré-pedidos", historico: "Entradas e faltas", novo: "Novo pré-pedido" };
 
-const S = { sb: null, user: null, rep: null, produtos: [], pm: {}, leitura: null, eventos: [], voltaram: [], pedidos: [], view: "estoque", sel: new Set(), editId: null, fItens: [], forcar: false };
+const S = { sb: null, user: null, rep: null, produtos: [], pm: {}, leitura: null, eventos: [], voltaram: [], pedidos: [], avisos: [], view: "estoque", sel: new Set(), editId: null, fItens: [], forcar: false };
 
 /* ===================== início ===================== */
 (async function init() {
@@ -117,6 +118,10 @@ function telaPrincipal() {
   <section id="view-estoque">
     <div id="faixaPush"></div>
     <div class="banner ok tap" id="alert" hidden><div class="ic">${IC.ok}</div><div class="tx"><strong id="alertTitle"></strong><p id="alertText"></p></div></div>
+    <div id="boxAvisar" hidden>
+      <div class="cap">Avisar clientes <span style="text-transform:none;font-weight:500">· o produto chegou</span></div>
+      <div class="list" id="listAvisar" style="margin-top:10px"></div>
+    </div>
     <div class="search">${IC.busca}<input id="busca" type="search" placeholder="Buscar produto ou EAN" autocomplete="off"></div>
     <div id="boxVolta" hidden>
       <div class="cap">Voltaram ao estoque <span id="voltaQuando" style="text-transform:none;font-weight:500"></span></div>
@@ -179,6 +184,17 @@ function telaPrincipal() {
 
   <button class="fab" id="btnNovoTop" type="button" hidden>${IC.mais}Novo</button>
 
+  <dialog class="sheet" id="dlgAviso">
+    <form method="dialog" id="fAviso" novalidate>
+      <div class="sheet-head"><div><small>Avisar quando chegar</small><b id="avProd"></b></div><button class="btn text" type="button" id="avFechar">Fechar</button></div>
+      <div class="list" id="avLista"></div>
+      <label>Nome do cliente <input id="avNome" autocomplete="off" placeholder="Ex.: Drogaria Central"></label>
+      <label>WhatsApp do cliente <input id="avTel" inputmode="tel" autocomplete="off" placeholder="(11) 91234-5678"></label>
+      <div class="notice bad" id="avErr" hidden></div>
+      <button class="btn primary" type="submit" id="avSalvar">Salvar aviso</button>
+    </form>
+  </dialog>
+
   <nav class="tabbar" role="tablist">
     <button type="button" role="tab" data-view="estoque" aria-selected="true">${IC.caixa}<span>Estoque</span><span class="badge" id="nSku" hidden></span></button>
     <button type="button" role="tab" data-view="ruptura" aria-selected="false">${IC.falta}<span>Em falta</span><span class="badge" id="nRup" hidden></span></button>
@@ -195,7 +211,7 @@ function telaPrincipal() {
   document.addEventListener("click", (e) => { if (!e.target.closest("#menu")) $("#menu").hidden = true; });
   $("#btnAtualizar").onclick = () => { $("#menu").hidden = true; carregar().then(() => toast("Atualizado.")); };
   $("#btnSair").onclick = async () => { await S.sb.auth.signOut(); location.reload(); };
-  $("#busca").oninput = renderBusca;
+  $("#busca").oninput = () => { renderBusca(); renderAvisar(); };
   $("#alfabeto").addEventListener("click", (e) => {
     const b = e.target.closest("[data-letra]"); if (!b) return;
     const alvo = document.getElementById("L-" + b.dataset.letra); if (!alvo) return;
@@ -210,6 +226,10 @@ function telaPrincipal() {
   $("#btnCopiarBaixo").onclick = () => copiarLista("baixo");
   if (navigator.share && /iphone|ipad|android/i.test(navigator.userAgent)) { $("#btnShareRup").hidden = false; $("#btnShareRup").onclick = () => compartilhar(textoLista("rup")); }
   $("#listPed").addEventListener("click", cliquePedido);
+  document.addEventListener("click", cliqueAviso);
+  $("#fAviso").onsubmit = salvarAviso;
+  $("#avFechar").onclick = () => $("#dlgAviso").close();
+  $("#avTel").oninput = (e) => (e.target.value = fmtTel(e.target.value));
   ligarForm();
   limparForm();
   renderPush();
@@ -232,11 +252,12 @@ function mostrar(v) {
 
 /* ===================== dados ===================== */
 async function carregar() {
-  const [p, l, ev, ped] = await Promise.all([
+  const [p, l, ev, ped, av] = await Promise.all([
     S.sb.from("produtos").select("ean,nome,pf,desc_max,estoque,cx_embarque").order("nome"),
     S.sb.from("leituras").select("*").order("id", { ascending: false }).limit(1).maybeSingle(),
     S.sb.from("eventos").select("*").order("id", { ascending: false }).limit(80),
     S.sb.from("prepedidos").select("*").order("criado_em", { ascending: false }),
+    S.sb.from("avisos").select("*").is("avisado_em", null).order("criado_em"),
   ]);
   if (p.error || ped.error) {
     if ((p.error || ped.error)?.code === "PGRST301" || /JWT/i.test((p.error || ped.error)?.message || "")) { await S.sb.auth.signOut(); telaLogin("Sua sessão expirou. Entre de novo."); return; }
@@ -244,7 +265,7 @@ async function carregar() {
     return;
   }
   S.produtos = p.data || []; S.pm = {}; S.produtos.forEach((x) => (S.pm[x.ean] = x));
-  S.leitura = l.data || null; S.eventos = ev.data || []; S.pedidos = ped.data || [];
+  S.leitura = l.data || null; S.eventos = ev.data || []; S.pedidos = ped.data || []; S.avisos = av.error ? S.avisos : av.data || [];
   S.voltaram = S.leitura ? S.eventos.filter((e) => e.leitura_id === S.leitura.id && e.tipo === "ENTROU") : [];
   renderEstoque(); renderPedidos(); renderFormItens();
 }
@@ -258,7 +279,7 @@ const rupturas = () => S.produtos.filter((p) => !p.estoque);
 const fora = () => new Set(ler("rup_fora", []));
 function renderRup() {
   const rup = rupturas(), f = fora(), box = $("#listRup"); if (!box) return;
-  box.innerHTML = rup.length ? rup.map((p) => `<label class="row sel"><input type="checkbox" data-rup="${esc(p.ean)}" ${f.has(p.ean) ? "" : "checked"}><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub">EAN ${esc(p.ean)}</div></div></label>`).join("")
+  box.innerHTML = rup.length ? rup.map((p) => `<label class="row sel"><input type="checkbox" data-rup="${esc(p.ean)}" ${f.has(p.ean) ? "" : "checked"}><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub">EAN ${esc(p.ean)}</div>${esperando(p.ean)}</div>${btnAviso(p.ean)}</label>`).join("")
     : `<div class="empty">${S.produtos.length ? "Nenhum produto em falta. 🎉" : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   const n = rup.filter((p) => !f.has(p.ean)).length;
   $("#rupSelInfo").textContent = rup.length ? `${n} de ${rup.length} na mensagem` : "";
@@ -266,7 +287,7 @@ function renderRup() {
 }
 function marcarRup(eans, incluir) { const f = fora(); eans.forEach((e) => (incluir ? f.delete(e) : f.add(e))); gravar("rup_fora", [...f]); renderRup(); }
 const baixos = () => S.produtos.filter((p) => p.estoque > 0 && p.estoque < 100).sort((a, b) => a.estoque - b.estoque);
-const linhaProd = (p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>até ${p.desc_max}%</span>` : ""}${cxTxt(p)}</div></div>${qEst(p)}</div>`;
+const linhaProd = (p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>${esc(p.ean)}</span>${p.pf ? `<span>PF ${brl(p.pf)}</span>` : ""}${p.desc_max ? `<span>até ${p.desc_max}%</span>` : ""}${cxTxt(p)}</div>${p.estoque ? "" : esperando(p.ean)}${p.estoque ? "" : `<button type="button" class="btn small avbtn" data-aviso="${esc(p.ean)}">${IC.sino}Avisar cliente</button>`}</div>${qEst(p)}</div>`;
 const cxTxt = (p) => (p?.cx_embarque ? `<span>Cx emb. ${p.cx_embarque} un.</span>` : "");
 const badge = (el, n) => { el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n || ""); };
 function renderEstoque() {
@@ -285,6 +306,7 @@ function renderEstoque() {
   $("#listVolta").innerHTML = S.voltaram.map((e) => `<div class="row"><div class="main"><div class="name">${esc(e.nome)}</div><div class="sub">EAN ${esc(e.ean)}</div></div><div class="q ok">+${(e.qtd || 0).toLocaleString("pt-BR")}<small>unidades</small></div></div>`).join("");
   renderRup();
   renderBusca();
+  renderAvisar();
   $("#events").innerHTML = S.eventos.length ? S.eventos.slice(0, 60).map((x) => `<div><time>${dt(x.criado_em, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</time><span style="flex:1;min-width:0">${esc(x.nome)}</span><span class="pill ${x.tipo === "ENTROU" ? "ok" : "bad"}">${x.tipo === "ENTROU" ? "entrou" + (x.qtd ? " " + x.qtd.toLocaleString("pt-BR") : "") : "zerou"}</span></div>`).join("") : `<div class="empty">Sem registros ainda.</div>`;
 }
 function buscar(q, lim = 60) { q = norm(q).trim(); if (!q) return []; const ws = q.split(/\s+/); return S.produtos.filter((p) => { const h = norm(p.nome) + " " + p.ean; return ws.every((w) => h.includes(w)); }).slice(0, lim); }
@@ -304,6 +326,72 @@ function renderBusca() {
   const letras = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ#"].filter((l) => grupos[l]);
   alf.innerHTML = letras.map((l) => `<button type="button" data-letra="${l}">${l}</button>`).join("");
   box.innerHTML = letras.map((l) => `<div class="sec" id="L-${l}">${l}</div><div class="list">${grupos[l].map(linhaProd).join("")}</div>`).join("");
+}
+
+/* ===================== avisar cliente quando chegar ===================== */
+const fmtTel = (v) => { const d = dig(v).replace(/^55(?=\d{10,11}$)/, "").slice(0, 11); if (d.length <= 2) return d; if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`; if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`; return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`; };
+const avDe = (ean) => S.avisos.filter((a) => a.ean === ean);
+const prontos = () => S.avisos.filter((a) => S.pm[a.ean]?.estoque > 0);
+const esperando = (ean) => { const l = avDe(ean); return l.length ? `<div class="espera">${IC.sino}${esc(l.map((a) => a.cliente).join(", "))}</div>` : ""; };
+const btnAviso = (ean) => `<button type="button" class="avico" data-aviso="${esc(ean)}" aria-label="Avisar cliente quando chegar">${IC.sino}${avDe(ean).length ? `<span>${avDe(ean).length}</span>` : ""}</button>`;
+const saudacao = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
+const msgAviso = (a) => `${saudacao()}, ${a.cliente.trim()}! O ${(S.pm[a.ean]?.nome || a.produto).trim()} acabou de entrar em estoque. Quer que fature quantas unidades?`;
+const linkWa = (a) => `https://wa.me/55${dig(a.telefone)}?text=${encodeURIComponent(msgAviso(a))}`;
+function renderAvisar() {
+  const l = prontos(), box = $("#boxAvisar"); if (!box) return;
+  box.hidden = !l.length || !!$("#busca")?.value.trim();
+  badge($("#nSku"), l.length);
+  $("#listAvisar").innerHTML = l.map((a) => `<div class="row"><div class="main"><div class="name">${esc(a.cliente)}</div><div class="sub"><span>${esc(S.pm[a.ean]?.nome || a.produto)}</span><span>${esc(fmtTel(a.telefone))}</span></div></div><span class="actions"><a class="btn wa small" href="${esc(linkWa(a))}" target="_blank" rel="noopener" data-avisou="${a.id}">${IC.wa}Avisar</a><button type="button" class="btn small text" data-avdel="${a.id}" aria-label="Remover aviso">✕</button></span></div>`).join("");
+}
+function abrirAviso(ean) {
+  const p = S.pm[ean]; S.avEan = ean;
+  $("#avProd").textContent = p?.nome || ean;
+  $("#avNome").value = ""; $("#avTel").value = ""; $("#avErr").hidden = true;
+  renderAvLista();
+  $("#dlgAviso").showModal();
+  setTimeout(() => $("#avNome").focus(), 50);
+}
+function renderAvLista() {
+  const l = avDe(S.avEan);
+  $("#avLista").hidden = !l.length;
+  $("#avLista").innerHTML = l.map((a) => `<div class="row"><div class="main"><div class="name">${esc(a.cliente)}</div><div class="sub">${esc(fmtTel(a.telefone))} · desde ${dt(a.criado_em, { day: "2-digit", month: "2-digit" })}</div></div><button type="button" class="btn small text" data-avdel="${a.id}" style="color:var(--bad)">Remover</button></div>`).join("");
+}
+async function salvarAviso(e) {
+  e.preventDefault();
+  const cliente = $("#avNome").value.trim(), tel = dig($("#avTel").value).replace(/^55(?=\d{10,11}$)/, "");
+  const err = (m) => { $("#avErr").hidden = false; $("#avErr").textContent = m; };
+  if (!cliente) return err("Informe o nome do cliente.");
+  if (tel.length < 10 || tel.length > 11) return err("Informe o WhatsApp com DDD, ex.: (11) 91234-5678.");
+  $("#avSalvar").disabled = true;
+  const { data, error } = await S.sb.from("avisos").insert({ user_id: S.user.id, ean: S.avEan, produto: S.pm[S.avEan]?.nome || S.avEan, cliente, telefone: tel }).select().single();
+  $("#avSalvar").disabled = false;
+  if (error) return err("Não foi possível salvar. Verifique a internet e tente de novo.");
+  S.avisos.push(data);
+  $("#dlgAviso").close();
+  renderEstoque();
+  toast(`Pronto! Quando chegar, o app lembra você de avisar ${cliente}.`);
+}
+async function cliqueAviso(e) {
+  const b = e.target.closest("[data-aviso]");
+  if (b) { e.preventDefault(); e.stopPropagation(); abrirAviso(b.dataset.aviso); return; }
+  const d = e.target.closest("[data-avdel]");
+  if (d) {
+    e.preventDefault();
+    const a = S.avisos.find((x) => x.id === d.dataset.avdel); if (!a || !confirm(`Remover o aviso para ${a.cliente}?`)) return;
+    const { error } = await S.sb.from("avisos").delete().eq("id", a.id);
+    if (error) { toast("Não foi possível remover. Tente de novo."); return; }
+    S.avisos = S.avisos.filter((x) => x.id !== a.id); renderEstoque(); if ($("#dlgAviso").open) renderAvLista();
+    return;
+  }
+  const w = e.target.closest("[data-avisou]");
+  if (w) {
+    const id = w.dataset.avisou;
+    w.href = linkWa(S.avisos.find((x) => x.id === id) || {});
+    S.sb.from("avisos").update({ avisado_em: new Date().toISOString() }).eq("id", id).then(({ error }) => {
+      if (error) return;
+      S.avisos = S.avisos.filter((x) => x.id !== id); setTimeout(renderEstoque, 800);
+    });
+  }
 }
 
 /* ===================== copiar / enviar no WhatsApp ===================== */

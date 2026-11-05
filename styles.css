@@ -182,3 +182,22 @@ details.hist[open] summary{border-bottom:1px solid var(--line)}
 .login h1{font-size:28px;font-weight:800;margin:0}
 .login p{color:var(--muted);margin:4px 0 0}
 .login .btn{height:50px}
+
+/* avisar cliente */
+.espera{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--accent);margin-top:4px;font-weight:600}
+.espera svg{width:14px;height:14px;flex:none}
+.avbtn{margin-top:8px;display:inline-flex;align-items:center;gap:6px;color:var(--accent)}
+.avbtn svg{width:16px;height:16px}
+.avico{border:0;background:var(--fill);color:var(--accent);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;cursor:pointer;flex:none;position:relative}
+.avico svg{width:20px;height:20px}
+.avico span{position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;display:grid;place-items:center}
+#listAvisar .actions{display:flex;gap:4px;align-items:center;flex:none}
+#listAvisar .btn.wa{display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+#listAvisar .btn.wa svg{width:17px;height:17px}
+dialog.sheet{border:0;padding:0;margin:auto auto 0;width:100%;max-width:560px;border-radius:18px 18px 0 0;background:var(--bg);color:var(--ink)}
+dialog.sheet::backdrop{background:rgba(0,0,0,.4)}
+dialog.sheet form{display:flex;flex-direction:column;gap:14px;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.sheet-head small{display:block;font-size:12.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.sheet-head b{font-size:16px;line-height:1.3}
+@media (min-width:600px){dialog.sheet{margin:auto;border-radius:18px}}
