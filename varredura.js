@@ -12,7 +12,7 @@
 
   if (!/salesfarma\.com\.br$/.test(location.hostname)) { alert('Abra o Sales Farma (uq.salesfarma.com.br), faça o login e clique no favorito de novo.'); return; }
   var eu = document.currentScript;
-  var AUTO = !!(eu && eu.dataset.auto);            // iniciada pela extensão do Edge
+  var AUTO = !!((eu && eu.dataset.auto) || window.__FF_AUTO);            // iniciada pela extensão do Edge
   var TOKEN = window.__FF_TOKEN || (eu && eu.dataset.token);
   if (!TOKEN) { if (!AUTO) alert('Favorito desatualizado. Peça um novo ao Claude.'); return; }
   if (window.__ffVarredura) { window.__ffVarredura.mostrar(); return; }
