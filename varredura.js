@@ -2,10 +2,10 @@
    Ativada pelo favorito "Varredura F&F". Lê o estoque nos horários abaixo e grava no Estoque FFSP,
    que atualiza o app, o HTML de importação e dispara os avisos para a equipe. Não usa o Claude. */
 (function () {
-  var HORARIOS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]; // de hora em hora (segunda a sexta)
+  var HORARIOS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // de hora em hora (segunda a sexta). O Sales bloqueia o acesso das 22h às 8h
   var diaUtil = function (d) { var w = d.getDay(); return w >= 1 && w <= 5; };
   var MINUTO = 6;                               // a F&F atualiza em :04, :24 e :44
-  var MANTER_SESSAO_MIN = 8;                    // consulta leve a cada 8 min, dia e noite, para o Sales não derrubar o login
+  var MANTER_SESSAO_MIN = 8;                    // consulta leve a cada 8 min (8h às 22h, seg a sex) para o Sales não derrubar o login por inatividade
   var RPC = 'https://hrqsohrhebynjsnmxjkb.supabase.co/rest/v1/rpc/ingest_estoque';
   var KEY = 'sb_publishable_e5wV4RzjmKp5la1xrc5dYw_RaEAKIG4';
   var DIST = '10854165000850';
@@ -112,7 +112,7 @@
       }
     }
     var h = agora.getHours();
-    if (Date.now() - ultimoKeep > MANTER_SESSAO_MIN * 60000 && !estado.rodando) {
+    if (diaUtil(agora) && h >= 8 && h < 22 && Date.now() - ultimoKeep > MANTER_SESSAO_MIN * 60000 && !estado.rodando) {
       ultimoKeep = Date.now();
       lerEstoque().catch(function (e) { if (String(e.message) === 'sessao') { estado.erro = 'O login do Sales caiu. Entre de novo e clique no favorito Varredura F&F.'; render(); avisarProblema('O login do Sales Farma caiu e a varredura parou. Entre de novo no Sales e clique no favorito "Varredura F&F".'); } });
     }
