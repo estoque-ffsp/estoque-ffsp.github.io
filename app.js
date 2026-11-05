@@ -20,6 +20,7 @@ const IC = {
   falta: svg('<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>'),
   baixo: svg('<path d="M3 7l6 6 4-4 8 8"/><path d="M21 11v6h-6"/>'),
   pedido: svg('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>'),
+  hist: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   mais: svg('<path d="M12 5v14M5 12h14"/>'),
   voltar: svg('<path d="M15 18l-6-6 6-6"/>'),
   busca: svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
@@ -27,7 +28,7 @@ const IC = {
   ok: svg('<path d="M20 6L9 17l-5-5"/>'),
   seta: svg('<path d="M12 19V5M5 12l7-7 7 7"/>'),
 };
-const TITULOS = { estoque: "Estoque F&F", ruptura: "Em falta", baixo: "Estoque baixo", pedidos: "Pré-pedidos", novo: "Novo pré-pedido" };
+const TITULOS = { estoque: "Estoque F&F", ruptura: "Em falta", baixo: "Estoque baixo", pedidos: "Pré-pedidos", historico: "Entradas e faltas", novo: "Novo pré-pedido" };
 
 const S = { sb: null, user: null, rep: null, produtos: [], pm: {}, leitura: null, eventos: [], voltaram: [], pedidos: [], view: "estoque", sel: new Set(), editId: null, fItens: [], forcar: false };
 
@@ -123,7 +124,11 @@ function telaPrincipal() {
     </div>
     <div class="chips" id="alfabeto" role="group" aria-label="Ir para a letra"></div>
     <div id="listGeral"></div>
-    <details class="hist"><summary>Histórico de entradas e faltas</summary><div class="events" id="events"></div></details>
+  </section>
+
+  <section id="view-historico" hidden>
+    <div class="selbar"><span>O que entrou e o que zerou nas últimas varreduras</span></div>
+    <div class="hist"><div class="events" id="events"></div></div>
   </section>
 
   <section id="view-ruptura" class="has-dock" hidden>
@@ -179,6 +184,7 @@ function telaPrincipal() {
     <button type="button" role="tab" data-view="ruptura" aria-selected="false">${IC.falta}<span>Em falta</span><span class="badge" id="nRup" hidden></span></button>
     <button type="button" role="tab" data-view="baixo" aria-selected="false">${IC.baixo}<span>Baixo</span><span class="badge warn" id="nBaixo" hidden></span></button>
     <button type="button" role="tab" data-view="pedidos" aria-selected="false" id="btnMeus">${IC.pedido}<span>Pré-pedidos</span><span class="badge ok" id="cntPed" hidden></span></button>
+    <button type="button" role="tab" data-view="historico" aria-selected="false">${IC.hist}<span>Histórico</span></button>
   </nav>`;
 
   document.querySelectorAll(".tabbar [data-view]").forEach((b) => (b.onclick = () => mostrar(b.dataset.view)));
@@ -215,7 +221,7 @@ function mostrar(v) {
   S.view = v;
   const aba = v === "novo" ? "pedidos" : v;
   document.querySelectorAll(".tabbar [data-view]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === aba)));
-  ["estoque", "ruptura", "baixo", "pedidos", "novo"].forEach((x) => ($("#view-" + x).hidden = x !== v));
+  ["estoque", "ruptura", "baixo", "pedidos", "historico", "novo"].forEach((x) => ($("#view-" + x).hidden = x !== v));
   document.body.classList.toggle("full", v === "novo");
   $("#btnVoltar").hidden = v !== "novo";
   $("#btnNovoTop").hidden = v !== "pedidos";
