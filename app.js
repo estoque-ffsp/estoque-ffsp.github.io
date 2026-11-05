@@ -109,7 +109,7 @@ function telaPrincipal() {
   <header class="appbar">
     <button class="iconbtn" id="btnVoltar" type="button" aria-label="Voltar" hidden>${IC.voltar}</button>
     <div class="ttl"><h1 id="ttl">Estoque F&amp;F</h1><div class="scan" id="scan"><span class="dot old"></span><span>Carregando…</span></div></div>
-    <button class="iconbtn" id="btnMenu" type="button" aria-label="Conta"><span class="avatar">${esc(String(S.rep.setor).slice(-3))}</span></button>
+    <button class="iconbtn" id="btnMenu" type="button" aria-label="Conta"><span class="avatar">${esc(S.rep.nome ? S.rep.nome.trim().split(/\s+/)[0] : String(S.rep.setor))}</span></button>
   </header>
   <div class="menu" id="menu" hidden><div class="who">Setor <b>${esc(S.rep.setor)}</b>${S.rep.nome ? " · " + esc(S.rep.nome) : ""}<br>F&amp;F – Taboão da Serra</div><button type="button" id="btnAtualizar">Atualizar agora</button><button type="button" class="danger" id="btnSair">Sair</button></div>
 

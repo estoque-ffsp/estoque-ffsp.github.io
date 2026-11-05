@@ -26,9 +26,10 @@ button{font-family:inherit}
 .appbar h1{font-size:19px;font-weight:700;margin:0;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .appbar .scan{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;white-space:nowrap;overflow:hidden}
 .iconbtn{border:0;background:transparent;color:var(--accent);width:42px;height:42px;border-radius:50%;display:grid;place-items:center;cursor:pointer;flex:none}
+#btnMenu{width:auto;border-radius:21px}
 .iconbtn svg{width:24px;height:24px}
 .iconbtn:active{background:var(--fill)}
-.avatar{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12px;display:grid;place-items:center}
+.avatar{min-width:34px;height:34px;padding:0 12px;border-radius:17px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:13px;display:grid;place-items:center}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;flex:none}
 .dot.old{background:var(--warn)}
 .menu{position:fixed;z-index:30;top:calc(var(--top) - 4px);right:12px;background:var(--surface);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);min-width:220px;overflow:hidden}
