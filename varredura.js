@@ -11,13 +11,15 @@
   var DIST = '10854165000850';
 
   if (!/salesfarma\.com\.br$/.test(location.hostname)) { alert('Abra o Sales Farma (uq.salesfarma.com.br), faça o login e clique no favorito de novo.'); return; }
-  var TOKEN = window.__FF_TOKEN;
-  if (!TOKEN) { alert('Favorito desatualizado. Peça um novo ao Claude.'); return; }
+  var eu = document.currentScript;
+  var AUTO = !!(eu && eu.dataset.auto);            // iniciada pela extensão do Edge
+  var TOKEN = window.__FF_TOKEN || (eu && eu.dataset.token);
+  if (!TOKEN) { if (!AUTO) alert('Favorito desatualizado. Peça um novo ao Claude.'); return; }
   if (window.__ffVarredura) { window.__ffVarredura.mostrar(); return; }
 
   var ls = { get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
   var hhmm = function (d) { return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); };
-  var estado = { ultima: ls.get('ff_ultima') || '', erro: '', rodando: false, alertado: false };
+  var estado = { ultima: ls.get('ff_ultima') || '', erro: '', rodando: false, alertado: false, mini: AUTO };
 
   // ---- selo na página ----
   var box = document.createElement('div');
@@ -37,14 +39,22 @@
   }
   function render() {
     var p = proximo(new Date());
+    if (estado.mini && !estado.erro) {
+      box.style.padding = '6px 10px'; box.style.borderRadius = '999px'; box.style.cursor = 'pointer'; box.style.opacity = '.85';
+      box.title = 'Varredura F&F ativa — clique para ver detalhes';
+      box.innerHTML = '<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:#5BD69A"></span>' + (estado.rodando ? 'Lendo…' : 'Varredura · ' + (p ? hhmm(p) : '—')) + '</div>';
+      box.onclick = function () { estado.mini = false; render(); };
+      return;
+    }
+    box.onclick = null; box.style.padding = '10px 12px'; box.style.borderRadius = '10px'; box.style.cursor = ''; box.style.opacity = '1'; box.title = '';
     var cor = estado.erro ? '#FF8A7E' : '#5BD69A';
     box.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-weight:700"><span style="width:9px;height:9px;border-radius:50%;background:' + cor + '"></span>Varredura F&amp;F ' + (estado.erro ? 'com problema' : 'ativa') + '</div>' +
       (estado.erro ? '<div style="color:#FFCFC9;margin-top:4px">' + estado.erro + '</div>' : '') +
       '<div style="opacity:.8;margin-top:4px">Última: ' + (estado.ultima || '—') + '<br>Próxima: ' + (p ? p.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '—') + '</div>' +
       '<div style="margin-top:6px;display:flex;gap:6px"><button id="ffv-agora" style="all:unset;cursor:pointer;background:#2446C4;padding:4px 10px;border-radius:6px;font-weight:600">' + (estado.rodando ? 'Lendo…' : 'Varrer agora') + '</button><button id="ffv-min" style="all:unset;cursor:pointer;opacity:.7;padding:4px 6px">minimizar</button></div>' +
-      '<div style="opacity:.6;font-size:11px;margin-top:6px">Deixe esta aba aberta e não navegue nela.</div>';
+      '<div style="opacity:.6;font-size:11px;margin-top:6px">' + (AUTO ? 'Liga sozinha em qualquer aba do Sales. Deixe uma aberta.' : 'Deixe esta aba aberta e não navegue nela.') + '</div>';
     document.getElementById('ffv-agora').onclick = function () { varrer('manual'); };
-    document.getElementById('ffv-min').onclick = function () { box.style.display = 'none'; };
+    document.getElementById('ffv-min').onclick = function (e) { e.stopPropagation(); estado.mini = true; render(); };
   }
 
   // ---- leitura do estoque ----
@@ -108,7 +118,7 @@
     }
     render();
   }
-  window.__ffVarredura = { mostrar: function () { box.style.display = 'block'; render(); } };
+  window.__ffVarredura = { mostrar: function () { estado.mini = false; render(); } };
   render();
   ultimoKeep = Date.now();
   tique();
