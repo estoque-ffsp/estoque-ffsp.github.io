@@ -2,7 +2,7 @@
    Ativada pelo favorito "Varredura F&F". Lê o estoque nos horários abaixo e grava no Estoque FFSP,
    que atualiza o app, o HTML de importação e dispara os avisos para a equipe. Não usa o Claude. */
 (function () {
-  var HORARIOS = [8, 11, 14, 17, 20];          // horas da varredura (segunda a sexta)
+  var HORARIOS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]; // de hora em hora (segunda a sexta)
   var diaUtil = function (d) { var w = d.getDay(); return w >= 1 && w <= 5; };
   var MINUTO = 6;                               // a F&F atualiza em :04, :24 e :44
   var MANTER_SESSAO_MIN = 8;                    // consulta leve para o Sales não derrubar o login
@@ -94,7 +94,7 @@
     if (diaUtil(agora)) {
       for (var j = 0; j < HORARIOS.length; j++) {
         var t = new Date(agora); t.setHours(HORARIOS[j], MINUTO, 0, 0);
-        var fim = new Date(t); fim.setMinutes(fim.getMinutes() + 170);
+        var fim = new Date(t); fim.setMinutes(fim.getMinutes() + 50);
         if (agora >= t && agora < fim && ls.get('ff_slot') !== dia(agora) + '@' + HORARIOS[j]) {
           ls.set('ff_slot', dia(agora) + '@' + HORARIOS[j]);
           varrer('agenda'); break;
