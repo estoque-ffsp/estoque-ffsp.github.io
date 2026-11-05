@@ -23,7 +23,7 @@
   var box = document.createElement('div');
   box.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;background:#14201D;color:#fff;font:13px/1.4 Segoe UI,Arial,sans-serif;padding:10px 12px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:290px';
   document.body.appendChild(box);
-  function slotDe(d) { return d.toISOString().slice(0, 10) + '@' + d.getHours(); }
+  function dia(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
   function proximo(agora) {
     for (var i = 0; i < 8; i++) {
       var d = new Date(agora); d.setDate(d.getDate() + i);
@@ -80,7 +80,6 @@
       estado.ultima = hhmm(new Date()) + ' (posição ' + (l.pos ? l.pos.slice(11, 16) : '—') + ')' + (res && (res.entrou || res.zerou) ? ' · ' + (res.entrou || 0) + ' entrou, ' + (res.zerou || 0) + ' zerou' : ' · sem mudanças');
       ls.set('ff_ultima', estado.ultima);
       estado.erro = ''; estado.alertado = false;
-      if (motivo !== 'manual') ls.set('ff_slot', slotDe(new Date()));
     } catch (e) {
       if (String(e.message) === 'sessao') { estado.erro = 'O login do Sales caiu. Entre de novo e clique no favorito Varredura F&F.'; avisarProblema('O login do Sales Farma caiu e a varredura parou. Entre de novo no Sales e clique no favorito "Varredura F&F".'); }
       else estado.erro = 'Falha ao gravar (' + e.message + '). Tento de novo no próximo horário.';
@@ -96,8 +95,8 @@
       for (var j = 0; j < HORARIOS.length; j++) {
         var t = new Date(agora); t.setHours(HORARIOS[j], MINUTO, 0, 0);
         var fim = new Date(t); fim.setMinutes(fim.getMinutes() + 170);
-        if (agora >= t && agora < fim && ls.get('ff_slot') !== agora.toISOString().slice(0, 10) + '@' + HORARIOS[j]) {
-          ls.set('ff_slot', agora.toISOString().slice(0, 10) + '@' + HORARIOS[j]);
+        if (agora >= t && agora < fim && ls.get('ff_slot') !== dia(agora) + '@' + HORARIOS[j]) {
+          ls.set('ff_slot', dia(agora) + '@' + HORARIOS[j]);
           varrer('agenda'); break;
         }
       }
