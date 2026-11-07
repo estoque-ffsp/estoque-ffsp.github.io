@@ -2,10 +2,10 @@
    Ativada pelo favorito "Varredura F&F". Lê o estoque nos horários abaixo e grava no Estoque FFSP,
    que atualiza o app, o HTML de importação e dispara os avisos para a equipe. Não usa o Claude. */
 (function () {
-  var HORARIOS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // de hora em hora (segunda a sexta). O Sales bloqueia o acesso das 22h às 8h
-  var diaUtil = function (d) { var w = d.getDay(); return w >= 1 && w <= 5; };
-  var MINUTO = 6;                               // a F&F atualiza em :04, :24 e :44
-  var MANTER_SESSAO_MIN = 8;                    // consulta leve a cada 8 min (8h às 22h, seg a sex) para o Sales não derrubar o login por inatividade
+  // De 30 em 30 minutos, 24 horas, todos os dias. A F&F atualiza em :04, :24 e :44.
+  var SLOTS = [];
+  for (var hh = 0; hh < 24; hh++) { SLOTS.push([hh, 6]); SLOTS.push([hh, 36]); }
+  var MANTER_SESSAO_MIN = 8;                    // consulta leve a cada 8 min, dia e noite, para o Sales não derrubar o login por inatividade
   var RPC = 'https://hrqsohrhebynjsnmxjkb.supabase.co/rest/v1/rpc/ingest_estoque';
   var KEY = 'sb_publishable_e5wV4RzjmKp5la1xrc5dYw_RaEAKIG4';
   var DIST = '10854165000850';
@@ -29,9 +29,8 @@
   function proximo(agora) {
     for (var i = 0; i < 8; i++) {
       var d = new Date(agora); d.setDate(d.getDate() + i);
-      if (!diaUtil(d)) continue; // sábado e domingo
-      for (var j = 0; j < HORARIOS.length; j++) {
-        var t = new Date(d); t.setHours(HORARIOS[j], MINUTO, 0, 0);
+      for (var j = 0; j < SLOTS.length; j++) {
+        var t = new Date(d); t.setHours(SLOTS[j][0], SLOTS[j][1], 0, 0);
         if (t > agora) return t;
       }
     }
@@ -101,18 +100,16 @@
   var ultimoKeep = 0;
   function tique() {
     var agora = new Date();
-    if (diaUtil(agora)) {
-      for (var j = 0; j < HORARIOS.length; j++) {
-        var t = new Date(agora); t.setHours(HORARIOS[j], MINUTO, 0, 0);
-        var fim = new Date(t); fim.setMinutes(fim.getMinutes() + 50);
-        if (agora >= t && agora < fim && ls.get('ff_slot') !== dia(agora) + '@' + HORARIOS[j]) {
-          ls.set('ff_slot', dia(agora) + '@' + HORARIOS[j]);
-          varrer('agenda'); break;
-        }
+    for (var j = 0; j < SLOTS.length; j++) {
+      var t = new Date(agora); t.setHours(SLOTS[j][0], SLOTS[j][1], 0, 0);
+      var fim = new Date(t); fim.setMinutes(fim.getMinutes() + 25);
+      var chave = dia(agora) + '@' + SLOTS[j][0] + ':' + SLOTS[j][1];
+      if (agora >= t && agora < fim && ls.get('ff_slot') !== chave) {
+        ls.set('ff_slot', chave);
+        varrer('agenda'); break;
       }
     }
-    var h = agora.getHours();
-    if (diaUtil(agora) && h >= 8 && h < 22 && Date.now() - ultimoKeep > MANTER_SESSAO_MIN * 60000 && !estado.rodando) {
+    if (Date.now() - ultimoKeep > MANTER_SESSAO_MIN * 60000 && !estado.rodando) {
       ultimoKeep = Date.now();
       lerEstoque().catch(function (e) { if (String(e.message) === 'sessao') { estado.erro = 'O login do Sales caiu. Entre de novo e clique no favorito Varredura F&F.'; render(); avisarProblema('O login do Sales Farma caiu e a varredura parou. Entre de novo no Sales e clique no favorito "Varredura F&F".'); } });
     }
