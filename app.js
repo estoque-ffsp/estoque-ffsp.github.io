@@ -253,7 +253,7 @@ function mostrar(v) {
 /* ===================== dados ===================== */
 async function carregar() {
   const [p, l, ev, ped, av] = await Promise.all([
-    S.sb.from("produtos").select("ean,nome,pf,desc_max,estoque,cx_embarque").order("nome"),
+    S.sb.rpc("produtos_app"),
     S.sb.from("leituras").select("*").order("id", { ascending: false }).limit(1).maybeSingle(),
     S.sb.from("eventos").select("*").order("id", { ascending: false }).limit(80),
     S.sb.from("prepedidos").select("*").order("criado_em", { ascending: false }),
