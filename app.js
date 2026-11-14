@@ -258,7 +258,8 @@ async function carregar() {
     S.sb.from("eventos").select("*").order("id", { ascending: false }).limit(80),
     S.sb.from("prepedidos").select("*").order("criado_em", { ascending: false }),
     S.sb.from("avisos").select("*").is("avisado_em", null).order("criado_em"),
-  ]);
+    S.inicio ? null : S.sb.rpc("inicio_monitoramento"),
+  ]).then((r) => { if (r[5]?.data) S.inicio = r[5].data; return r; });
   if (p.error || ped.error) {
     if ((p.error || ped.error)?.code === "PGRST301" || /JWT/i.test((p.error || ped.error)?.message || "")) { await S.sb.auth.signOut(); telaLogin("Sua sessão expirou. Entre de novo."); return; }
     $("#scan").innerHTML = `<span class="dot old"></span><span>Sem conexão. Mostrando os últimos dados.</span>`;
@@ -274,12 +275,24 @@ async function carregar() {
 const pillEst = (p) => !p ? `<span class="pill muted">fora do portfólio</span>` : p.estoque ? `<span class="pill ok">${p.estoque.toLocaleString("pt-BR")} un.</span>` : `<span class="pill bad">sem estoque</span>`;
 const qEst = (p) => !p ? `<div class="q muted">fora do<br>portfólio</div>` : !p.estoque ? `<div class="q bad">Sem<br>estoque</div>` : `<div class="q ${p.estoque < 100 ? "warn" : "ok"}">${p.estoque.toLocaleString("pt-BR")}<small>unidades</small></div>`;
 const dt = (iso, o = { dateStyle: "short", timeStyle: "short" }) => new Date(iso).toLocaleString("pt-BR", o);
+// Há quanto tempo o produto está em falta
+const diasDesde = (iso) => Math.floor((Date.now() - new Date(iso)) / 864e5);
+function faltaTxt(p) {
+  if (p.falta_desde) { const d = diasDesde(p.falta_desde); return d < 1 ? "Zerou hoje" : d === 1 ? "Em falta há 1 dia" : `Em falta há ${d} dias`; }
+  return S.inicio ? `Em falta desde antes de ${dt(S.inicio, { day: "2-digit", month: "2-digit" })}` : "";
+}
+// Previsão de quando acaba, pela saída média diária
+function acabaTxt(p) {
+  if (!p.saida_dia || !p.estoque) return "";
+  const d = p.estoque / p.saida_dia;
+  return d < 1 ? "Deve acabar hoje" : d < 1.5 ? "Deve acabar em ~1 dia" : d > 60 ? "" : `Deve acabar em ~${Math.round(d)} dias`;
+}
 const rupturas = () => S.produtos.filter((p) => !p.estoque);
 // Produtos de ruptura que o representante tirou da mensagem (ex.: lançamentos). Fica salvo no aparelho.
 const fora = () => new Set(ler("rup_fora", []));
 function renderRup() {
   const rup = rupturas(), f = fora(), box = $("#listRup"); if (!box) return;
-  box.innerHTML = rup.length ? rup.map((p) => `<label class="row sel"><input type="checkbox" data-rup="${esc(p.ean)}" ${f.has(p.ean) ? "" : "checked"}><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub">EAN ${esc(p.ean)}</div>${esperando(p.ean)}</div>${btnAviso(p.ean)}</label>`).join("")
+  box.innerHTML = rup.length ? rup.map((p) => `<label class="row sel"><input type="checkbox" data-rup="${esc(p.ean)}" ${f.has(p.ean) ? "" : "checked"}><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub">EAN ${esc(p.ean)}</div>${faltaTxt(p) ? `<div class="sub info-falta">${esc(faltaTxt(p))}</div>` : ""}${esperando(p.ean)}</div>${btnAviso(p.ean)}</label>`).join("")
     : `<div class="empty">${S.produtos.length ? "Nenhum produto em falta. 🎉" : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   const n = rup.filter((p) => !f.has(p.ean)).length;
   $("#rupSelInfo").textContent = rup.length ? `${n} de ${rup.length} na mensagem` : "";
@@ -295,7 +308,7 @@ function renderEstoque() {
   badge($("#nRup"), tem ? rup.length : 0);
   badge($("#nBaixo"), tem ? bx.length : 0);
   $("#boxVolta").hidden = !S.voltaram.length;
-  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>EAN ${esc(p.ean)}</span>${cxTxt(p)}</div></div>${qEst(p)}</div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
+  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>EAN ${esc(p.ean)}</span>${cxTxt(p)}</div>${acabaTxt(p) ? `<div class="sub info-acaba">${esc(acabaTxt(p))}</div>` : ""}</div>${qEst(p)}</div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   if (S.leitura) {
     const h = (Date.now() - new Date(S.leitura.lido_em)) / 36e5;
     const hoje = new Date(S.leitura.lido_em).toDateString() === new Date().toDateString();

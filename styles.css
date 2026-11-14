@@ -201,3 +201,6 @@ dialog.sheet form{display:flex;flex-direction:column;gap:14px;padding:18px 16px 
 .sheet-head small{display:block;font-size:12.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .sheet-head b{font-size:16px;line-height:1.3}
 @media (min-width:600px){dialog.sheet{margin:auto;border-radius:18px}}
+
+.sub.info-falta{color:var(--bad);font-weight:600;margin-top:3px}
+.sub.info-acaba{color:var(--warn);font-weight:600;margin-top:3px}
