@@ -1,5 +1,5 @@
 // Service worker: notificações com o app fechado + funcionamento básico offline
-const CACHE = "estoque-v29";
+const CACHE = "estoque-v30";
 const ARQUIVOS = ["./", "./index.html", "./app.js", "./styles.css", "./config.js", "./manifest.json", "./icon-192.png"];
 
 self.addEventListener("install", (e) => {
