@@ -308,7 +308,7 @@ function renderEstoque() {
   badge($("#nRup"), tem ? rup.length : 0);
   badge($("#nBaixo"), tem ? bx.length : 0);
   $("#boxVolta").hidden = !S.voltaram.length;
-  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>EAN ${esc(p.ean)}</span>${cxTxt(p)}</div>${acabaTxt(p) ? `<div class="sub info-acaba">${esc(acabaTxt(p))}</div>` : ""}</div>${qEst(p)}</div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
+  $("#listBaixo").innerHTML = bx.length ? bx.map((p) => `<div class="row"><div class="main"><div class="name">${esc(p.nome)}</div><div class="sub"><span>EAN ${esc(p.ean)}</span>${cxTxt(p)}</div>${acabaTxt(p) ? `<div class="sub info-acaba">${esc(acabaTxt(p))}</div>` : ""}${esperando(p.ean)}</div><span class="baixo-dir">${qEst(p)}${btnAviso(p.ean)}</span></div>`).join("") : `<div class="empty">${tem ? "Nenhum produto abaixo de 100 unidades." : "O estoque aparece aqui depois da primeira varredura."}</div>`;
   if (S.leitura) {
     const h = (Date.now() - new Date(S.leitura.lido_em)) / 36e5;
     const hoje = new Date(S.leitura.lido_em).toDateString() === new Date().toDateString();
@@ -344,7 +344,7 @@ function renderBusca() {
 /* ===================== avisar cliente quando chegar ===================== */
 const fmtTel = (v) => { const d = dig(v).replace(/^55(?=\d{10,11}$)/, "").slice(0, 11); if (d.length <= 2) return d; if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`; if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`; return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`; };
 const avDe = (ean) => S.avisos.filter((a) => a.ean === ean);
-const prontos = () => S.avisos.filter((a) => S.pm[a.ean]?.estoque > 0);
+const prontos = () => S.avisos.filter((a) => (S.pm[a.ean]?.estoque || 0) > (a.estoque_base || 0));
 const esperando = (ean) => { const l = avDe(ean); return l.length ? `<div class="espera">${IC.sino}${esc(l.map((a) => a.cliente).join(", "))}</div>` : ""; };
 const btnAviso = (ean) => `<button type="button" class="avico" data-aviso="${esc(ean)}" aria-label="Avisar cliente quando chegar">${IC.sino}${avDe(ean).length ? `<span>${avDe(ean).length}</span>` : ""}</button>`;
 const saudacao = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
@@ -376,13 +376,13 @@ async function salvarAviso(e) {
   if (!cliente) return err("Informe o nome do cliente.");
   if (tel.length < 10 || tel.length > 11) return err("Informe o WhatsApp com DDD, ex.: (11) 91234-5678.");
   $("#avSalvar").disabled = true;
-  const { data, error } = await S.sb.from("avisos").insert({ user_id: S.user.id, ean: S.avEan, produto: S.pm[S.avEan]?.nome || S.avEan, cliente, telefone: tel }).select().single();
+  const { data, error } = await S.sb.from("avisos").insert({ user_id: S.user.id, ean: S.avEan, produto: S.pm[S.avEan]?.nome || S.avEan, cliente, telefone: tel, estoque_base: S.pm[S.avEan]?.estoque || 0 }).select().single();
   $("#avSalvar").disabled = false;
   if (error) return err("Não foi possível salvar. Verifique a internet e tente de novo.");
   S.avisos.push(data);
   $("#dlgAviso").close();
   renderEstoque();
-  toast(`Pronto! Quando chegar, o app lembra você de avisar ${cliente}.`);
+  toast(S.pm[S.avEan]?.estoque ? `Pronto! Quando o estoque subir de ${S.pm[S.avEan].estoque} un., o app lembra você de avisar ${cliente}.` : `Pronto! Quando chegar, o app lembra você de avisar ${cliente}.`);
 }
 async function cliqueAviso(e) {
   const b = e.target.closest("[data-aviso]");

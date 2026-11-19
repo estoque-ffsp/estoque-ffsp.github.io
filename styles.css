@@ -204,3 +204,4 @@ dialog.sheet form{display:flex;flex-direction:column;gap:14px;padding:18px 16px 
 
 .sub.info-falta{color:var(--bad);font-weight:600;margin-top:3px}
 .sub.info-acaba{color:var(--warn);font-weight:600;margin-top:3px}
+.baixo-dir{display:flex;align-items:center;gap:10px;flex:none}
